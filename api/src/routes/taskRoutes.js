@@ -7,5 +7,6 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 router.get('/', taskController.getTasks);
+router.get('/:id', taskController.getTaskById);
 
 module.exports = router;
