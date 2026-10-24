@@ -24,6 +24,27 @@ const validateRegisterInput = (data) => {
   };
 };
 
+const validateLoginInput = (data) => {
+  const errors = [];
+  const email = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+  const password = typeof data.password === 'string' ? data.password : '';
+
+  if (!email) {
+    errors.push('Vui long nhap email');
+  }
+
+  if (!password) {
+    errors.push('Vui long nhap mat khau');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    data: { email, password }
+  };
+};
+
 module.exports = {
-  validateRegisterInput
+  validateRegisterInput,
+  validateLoginInput
 };

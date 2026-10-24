@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { validateRegisterInput } = require('../validators/authValidator');
+const { validateRegisterInput, validateLoginInput } = require('../validators/authValidator');
 
 // POST /api/auth/register
 const register = async (req, res, next) => {
@@ -50,6 +51,53 @@ const register = async (req, res, next) => {
   }
 };
 
+// POST /api/auth/login
+const login = async (req, res, next) => {
+  try {
+    const { isValid, errors, data } = validateLoginInput(req.body);
+    if (!isValid) {
+      return res.status(400).json({ message: errors[0] });
+    }
+
+    const { email, password } = data;
+
+    // Tim nguoi dung theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
+    }
+
+    // So khop mat khau
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
+    }
+
+    // Tao JWT token
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    return res.status(200).json({
+      message: 'Dang nhap thanh cong',
+      token,
+      user: {
+        id: user._id.toString(),
+        fullName: user.fullName,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-  register
+  register,
+  login
 };
