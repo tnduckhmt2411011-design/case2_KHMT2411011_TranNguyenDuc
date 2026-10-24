@@ -1,4 +1,5 @@
 const express = require('express');
+const authRoutes = require('./routes/authRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -10,6 +11,9 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ message: 'Task Manager API dang hoat dong' });
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Middleware xu ly loi
 app.use(errorMiddleware);
