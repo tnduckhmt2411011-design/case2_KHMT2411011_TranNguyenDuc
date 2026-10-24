@@ -97,7 +97,27 @@ const login = async (req, res, next) => {
   }
 };
 
+// GET /api/auth/me
+const getMe = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      message: 'Thong tin nguoi dung hien tai',
+      user: {
+        id: req.user._id.toString(),
+        fullName: req.user.fullName,
+        email: req.user.email,
+        avatarUrl: req.user.avatarUrl,
+        createdAt: req.user.createdAt,
+        updatedAt: req.user.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
-  login
+  login,
+  getMe
 };
