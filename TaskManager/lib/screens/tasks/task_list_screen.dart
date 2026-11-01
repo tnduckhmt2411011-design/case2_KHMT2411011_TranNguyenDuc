@@ -11,6 +11,7 @@ import '../../widgets/task_card.dart';
 import '../../widgets/user_selector.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notification_screen.dart';
+import '../profile/profile_screen.dart';
 import 'task_create_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -219,6 +220,12 @@ class _TaskListScreenState extends State<TaskListScreen>
     if (mounted) {
       _loadUnreadCount();
     }
+  }
+
+  Future<void> _openProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
   }
 
   void _onSearchChanged(String value) {
@@ -587,6 +594,11 @@ class _TaskListScreenState extends State<TaskListScreen>
             icon: const Icon(Icons.refresh),
             tooltip: 'Tải lại',
             onPressed: _loadAllTabs,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Tài khoản & thống kê',
+            onPressed: _openProfile,
           ),
           IconButton(
             icon: const Icon(Icons.logout),

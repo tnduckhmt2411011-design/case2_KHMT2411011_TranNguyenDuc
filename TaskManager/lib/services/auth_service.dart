@@ -94,4 +94,47 @@ class AuthService {
       message: 'Phản hồi thông tin người dùng không hợp lệ.',
     );
   }
+
+  // Cap nhat thong tin ca nhan
+  Future<User> updateProfile({
+    required String fullName,
+    String? avatarUrl,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw ApiException(statusCode: 401, message: 'Chưa đăng nhập');
+    }
+
+    final body = <String, dynamic>{'fullName': fullName};
+    if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+
+    final response = await _apiClient.put('/auth/me', body: body, token: token);
+    if (response is Map<String, dynamic> && response['user'] != null) {
+      return User.fromJson(response['user'] as Map<String, dynamic>);
+    }
+    throw ApiException(
+      statusCode: 500,
+      message: 'Phản hồi cập nhật hồ sơ không hợp lệ.',
+    );
+  }
+
+  // Doi mat khau
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw ApiException(statusCode: 401, message: 'Chưa đăng nhập');
+    }
+
+    await _apiClient.put(
+      '/auth/change-password',
+      body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+      token: token,
+    );
+  }
 }
