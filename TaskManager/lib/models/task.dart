@@ -1,15 +1,43 @@
 import 'user.dart';
 
+class TaskPermissions {
+  final bool canEdit;
+  final bool canChangeStatus;
+  final bool canDelete;
+  final bool canAssign;
+  final bool canShare;
+
+  TaskPermissions({
+    this.canEdit = false,
+    this.canChangeStatus = false,
+    this.canDelete = false,
+    this.canAssign = false,
+    this.canShare = false,
+  });
+
+  factory TaskPermissions.fromJson(Map<String, dynamic> json) {
+    return TaskPermissions(
+      canEdit: json['canEdit'] == true,
+      canChangeStatus: json['canChangeStatus'] == true,
+      canDelete: json['canDelete'] == true,
+      canAssign: json['canAssign'] == true,
+      canShare: json['canShare'] == true,
+    );
+  }
+}
+
 class TaskShareItem {
   final String id;
   final User? user;
   final String permission; // 'viewer' | 'editor'
+  final User? sharedBy;
   final DateTime? createdAt;
 
   TaskShareItem({
     required this.id,
     this.user,
     required this.permission,
+    this.sharedBy,
     this.createdAt,
   });
 
@@ -20,6 +48,9 @@ class TaskShareItem {
           ? User.fromJson(json['user'])
           : null,
       permission: json['permission'] ?? 'viewer',
+      sharedBy: json['sharedBy'] != null && json['sharedBy'] is Map<String, dynamic>
+          ? User.fromJson(json['sharedBy'])
+          : null,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
     );
   }
@@ -48,6 +79,7 @@ class Task {
   final List<User> assignees;
   final List<TaskShareItem> shares;
   final String? userRole; // 'creator', 'assignee', 'editor', 'viewer'
+  final TaskPermissions? permissions;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -64,6 +96,7 @@ class Task {
     this.assignees = const [],
     this.shares = const [],
     this.userRole,
+    this.permissions,
     this.createdAt,
     this.updatedAt,
   });
@@ -103,6 +136,12 @@ class Task {
       }
     }
 
+    // Permissions
+    TaskPermissions? parsedPermissions;
+    if (json['permissions'] != null && json['permissions'] is Map<String, dynamic>) {
+      parsedPermissions = TaskPermissions.fromJson(json['permissions']);
+    }
+
     return Task(
       id: json['id'] ?? json['_id'] ?? '',
       title: json['title'] ?? '',
@@ -116,6 +155,7 @@ class Task {
       assignees: parsedAssignees,
       shares: parsedShares,
       userRole: json['userRole'] as String?,
+      permissions: parsedPermissions,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null,
     );

@@ -106,4 +106,84 @@ class ApiClient {
       throw ApiException(statusCode: 0, message: 'Lỗi kết nối: ${e.toString()}');
     }
   }
+
+  Future<dynamic> put(String path, {dynamic body, String? token}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    try {
+      final response = await _httpClient
+          .put(
+            uri,
+            headers: _buildHeaders(token: token),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(AppConstants.timeoutDuration);
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc đảm bảo máy chủ đang chạy.',
+      );
+    } on TimeoutException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Kết nối máy chủ quá thời gian quy định (timeout). Vui lòng thử lại.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(statusCode: 0, message: 'Lỗi kết nối: ${e.toString()}');
+    }
+  }
+
+  Future<dynamic> patch(String path, {dynamic body, String? token}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    try {
+      final response = await _httpClient
+          .patch(
+            uri,
+            headers: _buildHeaders(token: token),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(AppConstants.timeoutDuration);
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc đảm bảo máy chủ đang chạy.',
+      );
+    } on TimeoutException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Kết nối máy chủ quá thời gian quy định (timeout). Vui lòng thử lại.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(statusCode: 0, message: 'Lỗi kết nối: ${e.toString()}');
+    }
+  }
+
+  Future<dynamic> delete(String path, {String? token}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    try {
+      final response = await _httpClient
+          .delete(uri, headers: _buildHeaders(token: token))
+          .timeout(AppConstants.timeoutDuration);
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc đảm bảo máy chủ đang chạy.',
+      );
+    } on TimeoutException {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Kết nối máy chủ quá thời gian quy định (timeout). Vui lòng thử lại.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(statusCode: 0, message: 'Lỗi kết nối: ${e.toString()}');
+    }
+  }
 }

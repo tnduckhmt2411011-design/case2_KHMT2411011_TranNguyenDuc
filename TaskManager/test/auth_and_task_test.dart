@@ -32,6 +32,26 @@ void main() {
       expect(Validators.validateConfirmPassword('1234567', '123456'), isNotNull);
       expect(Validators.validateConfirmPassword('123456', '123456'), isNull);
     });
+
+    test('validateTaskTitle', () {
+      expect(Validators.validateTaskTitle(''), isNotNull);
+      expect(Validators.validateTaskTitle('   '), isNotNull);
+      expect(Validators.validateTaskTitle(null), isNotNull);
+      expect(Validators.validateTaskTitle('a' * 201), isNotNull);
+      expect(Validators.validateTaskTitle('Cong viec hop le'), isNull);
+    });
+
+    test('validateDueDate', () {
+      final start = DateTime(2026, 11, 10);
+      final before = DateTime(2026, 11, 5);
+      final after = DateTime(2026, 11, 15);
+
+      expect(Validators.validateDueDate(before, start), isNotNull);
+      expect(Validators.validateDueDate(after, start), isNull);
+      expect(Validators.validateDueDate(start, start), isNull);
+      expect(Validators.validateDueDate(null, start), isNull);
+      expect(Validators.validateDueDate(after, null), isNull);
+    });
   });
 
   group('User Model Test', () {
@@ -85,9 +105,21 @@ void main() {
               'fullName': 'Le Thi Binh',
               'email': 'binh.le@taskmanager.com'
             },
-            'permission': 'viewer'
+            'permission': 'viewer',
+            'sharedBy': {
+              '_id': 'user_1',
+              'fullName': 'Tran Nguyen Duc',
+              'email': 'duc.tran@taskmanager.com'
+            }
           }
-        ]
+        ],
+        'permissions': {
+          'canEdit': true,
+          'canChangeStatus': true,
+          'canDelete': true,
+          'canAssign': true,
+          'canShare': true
+        }
       };
 
       final task = Task.fromJson(json);
@@ -100,6 +132,10 @@ void main() {
       expect(task.primaryAssignee?.fullName, 'Nguyen Van An');
       expect(task.shares.length, 1);
       expect(task.shares.first.permissionLabel, 'Chỉ xem (Viewer)');
+      expect(task.shares.first.sharedBy?.fullName, 'Tran Nguyen Duc');
+      expect(task.permissions?.canEdit, true);
+      expect(task.permissions?.canDelete, true);
+      expect(task.permissions?.canChangeStatus, true);
     });
   });
 

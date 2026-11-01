@@ -36,4 +36,21 @@ class Validators {
     }
     return null;
   }
+
+  static String? validateTaskTitle(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập tiêu đề công việc';
+    }
+    if (value.trim().length > 200) {
+      return 'Tiêu đề không được vượt quá 200 ký tự';
+    }
+    return null;
+  }
+
+  static String? validateDueDate(DateTime? dueDate, DateTime? startDate) {
+    if (dueDate != null && startDate != null && dueDate.isBefore(startDate)) {
+      return 'Hạn hoàn thành phải lớn hơn hoặc bằng ngày bắt đầu';
+    }
+    return null;
+  }
 }

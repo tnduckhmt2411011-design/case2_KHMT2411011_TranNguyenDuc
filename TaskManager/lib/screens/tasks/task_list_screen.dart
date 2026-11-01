@@ -6,6 +6,7 @@ import '../../services/task_service.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/task_card.dart';
 import '../auth/login_screen.dart';
+import 'task_create_screen.dart';
 import 'task_detail_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
@@ -187,6 +188,15 @@ class _TaskListScreenState extends State<TaskListScreen>
     }
   }
 
+  Future<void> _handleCreateTask() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const TaskCreateScreen()),
+    );
+    if (result == true && mounted) {
+      _loadAllTabs();
+    }
+  }
+
   Widget _buildTabContent({
     required bool isLoading,
     required String? error,
@@ -260,12 +270,15 @@ class _TaskListScreenState extends State<TaskListScreen>
           final task = tasks[index];
           return TaskCard(
             task: task,
-            onTap: () {
-              Navigator.of(context).push(
+            onTap: () async {
+              final result = await Navigator.of(context).push<bool>(
                 MaterialPageRoute(
                   builder: (_) => TaskDetailScreen(taskId: task.id),
                 ),
               );
+              if (result == true && mounted) {
+                _loadAllTabs();
+              }
             },
           );
         },
@@ -298,6 +311,11 @@ class _TaskListScreenState extends State<TaskListScreen>
             Tab(text: 'Được chia sẻ', icon: Icon(Icons.share)),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _handleCreateTask,
+        tooltip: 'Tạo công việc mới',
+        child: const Icon(Icons.add),
       ),
       body: TabBarView(
         controller: _tabController,
