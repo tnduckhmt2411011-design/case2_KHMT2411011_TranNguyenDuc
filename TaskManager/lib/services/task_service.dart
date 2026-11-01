@@ -1,4 +1,5 @@
 import '../models/task.dart';
+import '../models/task_activity.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 
@@ -187,6 +188,27 @@ class TaskService {
 
     try {
       await _apiClient.delete('/tasks/$taskId', token: token);
+    } on ApiException catch (e) {
+      _handle401(e);
+      rethrow;
+    }
+  }
+
+  // Lay lich su hoat dong cua cong viec
+  Future<List<TaskActivity>> getTaskActivities(String taskId) async {
+    final token = await _getValidToken();
+
+    try {
+      final response =
+          await _apiClient.get('/tasks/$taskId/activities', token: token);
+      if (response is Map<String, dynamic> && response['activities'] is List) {
+        final list = response['activities'] as List;
+        return list
+            .map((item) =>
+                TaskActivity.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } on ApiException catch (e) {
       _handle401(e);
       rethrow;
