@@ -19,12 +19,12 @@ case2_KHMT2411011_TranNguyenDuc/
 ├── api/                             # Backend RESTful API
 │   ├── src/
 │   │   ├── config/database.js       # Kết nối MongoDB Atlas
-│   │   ├── controllers/             # authController.js, taskController.js
-│   │   ├── middleware/              # authMiddleware.js, errorMiddleware.js
+│   │   ├── controllers/             # authController, taskController, userController, assignmentController, taskShareController
+│   │   ├── middleware/              # authMiddleware, permissionMiddleware, validateMiddleware, errorMiddleware
 │   │   ├── models/                  # User.js, Task.js, TaskShare.js
-│   │   ├── routes/                  # authRoutes.js, taskRoutes.js
-│   │   ├── services/                # taskService.js (kiểm tra phân quyền)
-│   │   ├── validators/              # authValidator.js
+│   │   ├── routes/                  # authRoutes, taskRoutes, userRoutes, assignmentRoutes, taskShareRoutes
+│   │   ├── services/                # taskService.js (tập trung phân quyền getTaskPermissions)
+│   │   ├── validators/              # authValidator.js, taskValidator.js
 │   │   ├── app.js                   # Cấu hình Express app
 │   │   └── server.js                # Khởi động server
 │   ├── .env.example                 # Mẫu biến môi trường
@@ -33,13 +33,15 @@ case2_KHMT2411011_TranNguyenDuc/
 ├── TaskManager/                     # Frontend Flutter Mobile Client
 │   ├── android/app/src/debug/       # AndroidManifest.xml (usesCleartextTraffic)
 │   ├── lib/
-│   │   ├── models/                  # user.dart, task.dart
+│   │   ├── models/                  # user.dart, task.dart, task_share.dart
 │   │   ├── screens/
 │   │   │   ├── auth/                # auth_gate.dart, login_screen.dart, register_screen.dart
-│   │   │   └── tasks/               # task_list_screen.dart, task_detail_screen.dart
-│   │   ├── services/                # api_client.dart, auth_service.dart, task_service.dart
+│   │   │   ├── tasks/               # task_list_screen.dart, task_detail_screen.dart, task_create_screen.dart, task_edit_screen.dart
+│   │   │   ├── assignment/          # assign_task_screen.dart
+│   │   │   └── sharing/             # task_sharing_screen.dart
+│   │   ├── services/                # api_client.dart, auth_service.dart, task_service.dart, user_service.dart, task_share_service.dart
 │   │   ├── utils/                   # constants.dart, validators.dart, date_formatter.dart
-│   │   ├── widgets/                 # task_card.dart, status_badge.dart, priority_badge.dart, loading_view.dart
+│   │   ├── widgets/                 # task_card.dart, status_badge.dart, priority_badge.dart, loading_view.dart, user_selector.dart
 │   │   ├── app.dart
 │   │   └── main.dart
 │   ├── test/                        # auth_and_task_test.dart, widget_test.dart
@@ -84,33 +86,54 @@ flutter run
 
 ---
 
-## 4. Các chức năng và Endpoint đã hoàn thành (Buổi 1)
+## 4. Các chức năng và Endpoint đã hoàn thành (Buổi 1 & Buổi 2)
 
 ### 4.1. Nhóm A - Xác thực tài khoản
 - `POST /api/auth/register`: Đăng ký tài khoản (validate fullName không rỗng, email hợp lệ, password >= 6 ký tự, băm bcryptjs, email trùng trả 409, không trả passwordHash).
 - `POST /api/auth/login`: Đăng nhập bằng email và mật khẩu (sai email hoặc sai mật khẩu đều trả 401 cùng thông điệp `"Email hoặc mật khẩu không đúng"`, thành công trả JWT token và thông tin người dùng).
 - `GET /api/auth/me`: Lấy thông tin tài khoản hiện tại từ JWT Bearer token (thiếu/sai/hết hạn trả 401).
 
-### 4.2. Nhóm B - Đọc dữ liệu công việc (Read)
-- `GET /api/tasks`: Lấy danh sách công việc người gọi có quyền truy cập (hỗ trợ tham số lọc `scope=created|assigned|shared`, mặc định lấy tất cả).
-- `GET /api/tasks/:id`: Lấy chi tiết công việc. Xử lý chính xác:
-  - ID không đúng định dạng ObjectId: `400 Bad Request`
-  - Công việc không tồn tại: `404 Not Found`
-  - Công việc tồn tại nhưng người dùng không có quyền truy cập: `403 Forbidden`
-  - Trả về chi tiết: người tạo, người phụ trách, người được giao, người được chia sẻ và vai trò của người gọi (`creator`, `assignee`, `viewer`, `editor`). Tuyệt đối không trả `passwordHash`.
+### 4.2. Nhóm B & C - Quản lý công việc, Giao việc và Chia sẻ (Buổi 2)
 
-### 4.3. Giao diện Flutter
-- `AuthGate`: Tự động kiểm tra token lưu trong `SharedPreferences`, điều hướng vào `TaskListScreen` nếu token hợp lệ, hoặc điều hướng về `LoginScreen` nếu hết hạn / chưa đăng nhập.
+#### Ma trận phân quyền hiệu lực (hợp các vai trò của người dùng trên công việc):
+| Hành động | creator | editor (share) | assignee | viewer (share) | Người không liên quan |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Xem** (`GET /api/tasks/:id`) | Có | Có | Có | Có | 403 Forbidden |
+| **Sửa thông tin** (`PUT /api/tasks/:id`) | Có | Có | Không | Không | 403 Forbidden |
+| **Đổi trạng thái** (`PATCH /api/tasks/:id/status`) | Có | Có | Có | Không | 403 Forbidden |
+| **Xóa công việc** (`DELETE /api/tasks/:id`) | Có | Không | Không | Không | 403 Forbidden |
+| **Giao việc** (`assignees`) | Có | Không | Không | Không | 403 Forbidden |
+| **Chia sẻ** (`shares`) | Có | Không | Không | Không | 403 Forbidden |
+
+#### Chi tiết Endpoints:
+- `POST /api/tasks`: Tạo công việc mới (`title` bắt buộc <= 200 ký tự, `priority`, `status`, `startDate`, `dueDate`; tự gán `createdBy`, bỏ qua các trường can thiệp quyền do client gửi).
+- `GET /api/tasks`: Lấy danh sách công việc (`scope=created|assigned|shared`).
+- `GET /api/tasks/:id`: Lấy chi tiết công việc kèm đối tượng permissions `{ canEdit, canChangeStatus, canDelete, canAssign, canShare }` phục vụ hiển thị nút tương tác trên app.
+- `PUT /api/tasks/:id`: Cập nhật thông tin công việc (creator và editor; chỉ nhận `title, description, startDate, dueDate, priority, status`).
+- `PATCH /api/tasks/:id/status`: Đổi trạng thái công việc (`todo`, `in_progress`, `completed`).
+- `DELETE /api/tasks/:id`: Xóa công việc và cascade xóa toàn bộ bản ghi `TaskShare` liên quan (chỉ creator).
+- `GET /api/users/search?q=`: Tìm kiếm người dùng theo tên hoặc email (trim >= 2 ký tự, thoát ký tự đặc biệt regex, giới hạn tối đa 10 kết quả, không trả `passwordHash`).
+- `GET /api/users/:id`: Lấy thông tin công khai của người dùng theo ID (400 nếu sai định dạng, 404 nếu không tìm thấy).
+- `GET /api/tasks/:id/assignees`: Lấy danh sách người được giao và người phụ trách chính.
+- `POST /api/tasks/:id/assignees`: Giao việc cho nhiều người (`userIds`, `primaryAssigneeId`; gộp không trùng lặp, kiểm tra tồn tại nguyên tử).
+- `PATCH /api/tasks/:id/assignees/:userId`: Chỉ định người phụ trách chính.
+- `DELETE /api/tasks/:id/assignees/:userId`: Hủy giao việc (nếu là người phụ trách chính thì chuyển về `null`).
+- `GET /api/tasks/:id/shares`: Lấy danh sách người được chia sẻ quyền.
+- `POST /api/tasks/:id/shares`: Chia sẻ quyền `viewer` hoặc `editor` cho nhiều người (chặn chia sẻ cho creator 400, bỏ qua trùng lặp dựa trên unique index `taskId + userId`).
+- `PATCH /api/tasks/:id/shares/:shareId`: Cập nhật quyền chia sẻ (`viewer` <-> `editor`).
+- `DELETE /api/tasks/:id/shares/:shareId`: Thu hồi quyền chia sẻ.
+
+### 4.3. Giao diện Flutter (Buổi 1 & Buổi 2)
+- `AuthGate`: Tự động kiểm tra token lưu trong `SharedPreferences`, tự động đăng nhập khi mở lại app.
 - `RegisterScreen`: Đăng ký tài khoản mới kèm kiểm tra tính hợp lệ phía client và hiển thị thông báo lỗi từ server.
 - `LoginScreen`: Đăng nhập, liên kết sang đăng ký, lưu token cục bộ.
-- `TaskListScreen`: Giao diện 3 tab phân loại rõ ràng:
-  - **Của tôi:** Các công việc do chính người dùng tạo (`scope=created`).
-  - **Được giao:** Các công việc được phân công phụ trách (`scope=assigned`).
-  - **Được chia sẻ:** Các công việc được người khác chia sẻ quyền xem/sửa (`scope=shared`).
-  - Đầy đủ trạng thái: Đang tải (Loading), Lỗi kèm nút Thử lại (Error & Retry), Rỗng (Empty), Kéo để làm mới (Pull-to-refresh).
-- `TaskDetailScreen`: Hiển thị chi tiết tiêu đề, mô tả, hạn hoàn thành, vai trò của người dùng, người tạo, người phụ trách và danh sách chia sẻ.
-- Các Badge chuẩn Material 3: Trạng thái (Chưa thực hiện, Đang thực hiện, Đã hoàn thành), Mức độ ưu tiên (Thấp, Trung bình, Cao).
-- Nút Đăng xuất: Hộp thoại xác nhận, xóa token khỏi `SharedPreferences` và đưa về màn hình đăng nhập.
+- `TaskListScreen`: 3 tab phân loại rõ ràng (Của tôi, Được giao, Được chia sẻ). Kèm trạng thái tải, lỗi tắt server có nút thử lại, kéo để làm mới, nút FloatingActionButton tạo công việc.
+- `TaskCreateScreen`: Form tạo công việc mới (tiêu đề, mô tả, chọn ngày bắt đầu & hạn hoàn thành bằng `showDatePicker`, dropdown ưu tiên & trạng thái).
+- `TaskEditScreen`: Form chỉnh sửa công việc đã điền sẵn dữ liệu cũ.
+- `TaskDetailScreen`: Hiển thị chi tiết công việc, người tạo, người phụ trách chính, danh sách người được giao và chia sẻ. Các nút bấm hành động (Sửa, Đổi trạng thái, Giao việc, Chia sẻ, Xóa) tự động ẩn/hiện theo quyền `permissions` từ backend.
+- `AssignTaskScreen`: Giao diện giao việc cho nhiều người bằng `UserSelector` (tìm kiếm debounce 400ms), chọn người phụ trách chính, hủy giao việc.
+- `TaskSharingScreen`: Giao diện chia sẻ cho nhiều người, chọn quyền `viewer`/`editor`, cập nhật quyền và thu hồi quyền chia sẻ có hộp thoại xác nhận.
+- Đầy đủ thông báo kết quả bằng SnackBar; tự động điều hướng về màn hình đăng nhập khi gặp lỗi 401.
 
 ---
 
@@ -124,12 +147,7 @@ flutter run
 
 ---
 
-## 6. Phạm vi công việc còn lại (Dành cho Buổi 2 và Buổi 3)
-- **Buổi 2:**
-  - Hoàn thiện CRUD công việc: Thêm công việc mới (`POST /api/tasks`), Chỉnh sửa công việc (`PUT /api/tasks/:id`), Xóa công việc (`DELETE /api/tasks/:id`), Cập nhật nhanh trạng thái (`PATCH /api/tasks/:id/status`).
-  - Nghiệp vụ Giao việc: Giao việc cho nhiều người (`/api/tasks/:id/assignees`), chỉ định người phụ trách chính.
-  - Nghiệp vụ Chia sẻ: Chia sẻ quyền `viewer` / `editor`, thay đổi quyền, thu hồi quyền chia sẻ (`/api/tasks/:id/shares`).
-- **Buổi 3:**
-  - Email thông báo: Gửi email tự động khi giao việc/chia sẻ/hoàn thành (`emailService`, `email_logs`).
-  - Thông báo trong ứng dụng: Collection `notifications`, đếm thông báo chưa đọc, đánh dấu đã đọc.
-  - Tiện ích & Thống kê: Tìm kiếm công việc theo từ khóa, lọc theo trạng thái/ưu tiên, thống kê tiến độ (`/api/statistics`).
+## 6. Phạm vi công việc còn lại (Dành cho Buổi 3)
+- **Email thông báo:** Gửi email tự động khi giao việc/chia sẻ/hoàn thành (`emailService`, `email_logs`).
+- **Thông báo trong ứng dụng:** Collection `notifications`, đếm thông báo chưa đọc, đánh dấu đã đọc.
+- **Tiện ích & Thống kê:** Tìm kiếm công việc theo từ khóa, lọc theo trạng thái/ưu tiên, thống kê tiến độ (`/api/statistics`).
