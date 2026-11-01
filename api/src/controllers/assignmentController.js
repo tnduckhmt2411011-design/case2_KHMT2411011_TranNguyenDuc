@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { formatTaskDetail } = require('./taskController');
+const { notifyTaskAssigned } = require('../services/notificationService');
 
 // GET /api/tasks/:id/assignees (quyen xem)
 const getAssignees = async (req, res, next) => {
@@ -64,6 +65,10 @@ const assignUsers = async (req, res, next) => {
 
     // Gop vao assigneeIds khong trung
     const existingSet = new Set((task.assigneeIds || []).map((id) => id.toString()));
+    const newlyAssignedUsers = foundUsers.filter(
+      (user) => !existingSet.has(user._id.toString())
+    );
+
     for (const uid of uniqueInputIds) {
       existingSet.add(uid);
     }
@@ -81,6 +86,13 @@ const assignUsers = async (req, res, next) => {
     }
 
     await task.save();
+
+    // Tao thong bao trong ung dung cho nhung nguoi moi duoc giao
+    await notifyTaskAssigned({
+      task,
+      actor: req.user,
+      recipients: newlyAssignedUsers
+    });
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
     return res.status(200).json({

@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const TaskShare = require('../models/TaskShare');
 const { getTaskPermissions } = require('../services/taskService');
+const {
+  notifyTaskStatusChanged,
+  notifyTaskDueDateChanged
+} = require('../services/notificationService');
 
 // Helper dinh dang chi tiet mot cong viec tra ve client (kem permissions)
 const formatTaskDetail = async (taskDoc, permissions) => {
@@ -206,6 +210,9 @@ const updateTask = async (req, res, next) => {
     const task = req.task;
     const { title, description, priority, status, startDate, dueDate } = req.validatedBody;
 
+    const oldStatus = task.status;
+    const oldDueTime = task.dueDate ? task.dueDate.getTime() : null;
+
     task.title = title;
     task.description = description;
     task.priority = priority;
@@ -214,6 +221,29 @@ const updateTask = async (req, res, next) => {
     task.dueDate = dueDate;
 
     await task.save();
+
+    // Thong bao cho nguoi tao va nguoi duoc giao khi thong tin quan trong thay doi
+    const recipients = [task.createdBy, ...(task.assigneeIds || [])];
+
+    if (oldStatus !== task.status) {
+      await notifyTaskStatusChanged({
+        task,
+        actor: req.user,
+        recipients,
+        fromStatus: oldStatus,
+        toStatus: task.status
+      });
+    }
+
+    const newDueTime = task.dueDate ? task.dueDate.getTime() : null;
+    if (oldDueTime !== newDueTime) {
+      await notifyTaskDueDateChanged({
+        task,
+        actor: req.user,
+        recipients,
+        oldDueDate: oldDueTime
+      });
+    }
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
     return res.status(200).json({
@@ -230,9 +260,20 @@ const updateTaskStatus = async (req, res, next) => {
   try {
     const task = req.task;
     const { status } = req.validatedBody;
+    const oldStatus = task.status;
 
     task.status = status;
     await task.save();
+
+    if (oldStatus !== task.status) {
+      await notifyTaskStatusChanged({
+        task,
+        actor: req.user,
+        recipients: [task.createdBy, ...(task.assigneeIds || [])],
+        fromStatus: oldStatus,
+        toStatus: task.status
+      });
+    }
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
     return res.status(200).json({

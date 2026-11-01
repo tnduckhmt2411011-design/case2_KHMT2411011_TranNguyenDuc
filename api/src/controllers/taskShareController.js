@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const TaskShare = require('../models/TaskShare');
 const User = require('../models/User');
+const { notifyTaskShared } = require('../services/notificationService');
 
 // GET /api/tasks/:id/shares (quyen xem)
 const getShares = async (req, res, next) => {
@@ -124,6 +125,21 @@ const createShares = async (req, res, next) => {
           }
         }
       }
+    }
+
+    // Thong bao cho nhung nguoi vua duoc chia se (bo qua ban ghi da ton tai)
+    const createdUserIdSet = new Set(created.map((item) => item.user.id));
+    const newlySharedUsers = foundUsers.filter((user) =>
+      createdUserIdSet.has(user._id.toString())
+    );
+
+    if (newlySharedUsers.length > 0) {
+      await notifyTaskShared({
+        task,
+        actor: req.user,
+        recipients: newlySharedUsers,
+        permission
+      });
     }
 
     return res.status(201).json({
