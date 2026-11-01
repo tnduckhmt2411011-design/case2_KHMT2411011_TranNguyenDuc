@@ -12,6 +12,15 @@ const app = express();
 // Middleware phan tich cu phap JSON
 app.use(express.json());
 
+// Dam bao req.body luon la object, tranh loi 500 khi request thieu body
+// hoac khong gui Content-Type: application/json
+app.use((req, res, next) => {
+  if (!req.body || typeof req.body !== 'object') {
+    req.body = {};
+  }
+  next();
+});
+
 // Endpoint kiem tra trang thai he thong
 app.get('/', (req, res) => {
   res.json({ message: 'Task Manager API dang hoat dong' });
