@@ -32,11 +32,31 @@ class TaskService {
     }
   }
 
-  // Lay danh sach cong viec theo scope (created | assigned | shared | null = all)
-  Future<List<Task>> getTasks({String? scope}) async {
+  // Lay danh sach cong viec theo scope va bo loc
+  Future<List<Task>> getTasks({
+    String? scope,
+    String? q,
+    String? status,
+    String? priority,
+    String? assigneeId,
+    String? sortBy,
+    String? order,
+  }) async {
     final token = await _getValidToken();
 
-    final queryParams = scope != null && scope.isNotEmpty ? '?scope=$scope' : '';
+    final params = <String, String>{};
+    if (scope != null && scope.isNotEmpty) params['scope'] = scope;
+    if (q != null && q.trim().isNotEmpty) params['q'] = q.trim();
+    if (status != null && status.isNotEmpty) params['status'] = status;
+    if (priority != null && priority.isNotEmpty) params['priority'] = priority;
+    if (assigneeId != null && assigneeId.isNotEmpty) {
+      params['assigneeId'] = assigneeId;
+    }
+    if (sortBy != null && sortBy.isNotEmpty) params['sortBy'] = sortBy;
+    if (order != null && order.isNotEmpty) params['order'] = order;
+
+    final queryParams = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
+
     try {
       final response = await _apiClient.get('/tasks$queryParams', token: token);
       if (response is Map<String, dynamic> && response['tasks'] is List) {

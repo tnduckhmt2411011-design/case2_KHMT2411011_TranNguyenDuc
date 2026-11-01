@@ -8,6 +8,7 @@ class UserSelector extends StatefulWidget {
   final ValueChanged<List<User>> onSelectedChanged;
   final List<String> excludedUserIds;
   final String title;
+  final bool singleSelect;
 
   const UserSelector({
     super.key,
@@ -15,6 +16,7 @@ class UserSelector extends StatefulWidget {
     required this.onSelectedChanged,
     this.excludedUserIds = const [],
     this.title = 'Tìm và chọn người dùng',
+    this.singleSelect = false,
   });
 
   @override
@@ -85,7 +87,10 @@ class _UserSelectorState extends State<UserSelector> {
   void _toggleUser(User user) {
     setState(() {
       final exists = _selectedUsers.any((u) => u.id == user.id);
-      if (exists) {
+
+      if (widget.singleSelect) {
+        _selectedUsers = exists ? [] : [user];
+      } else if (exists) {
         _selectedUsers.removeWhere((u) => u.id == user.id);
       } else {
         _selectedUsers.add(user);
