@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const taskController = require('../controllers/taskController');
+const emailLogController = require('../controllers/emailLogController');
 const assignmentRoutes = require('./assignmentRoutes');
 const taskShareRoutes = require('./taskShareRoutes');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -21,6 +22,7 @@ router.get('/:id', requireTaskPermission('view'), taskController.getTaskById);
 router.put('/:id', requireTaskPermission('edit'), validate(validateTaskUpdateInput), taskController.updateTask);
 router.patch('/:id/status', requireTaskPermission('changeStatus'), validate(validateTaskStatusInput), taskController.updateTaskStatus);
 router.delete('/:id', requireTaskPermission('delete'), taskController.deleteTask);
+router.get('/:id/email-logs', requireTaskPermission('view'), emailLogController.getTaskEmailLogs);
 
 // Sub-routes giao viec va chia se
 router.use('/:id/assignees', assignmentRoutes);
