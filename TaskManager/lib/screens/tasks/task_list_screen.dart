@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../models/task.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/task_service.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/task_card.dart';
 import '../auth/login_screen.dart';
+import '../notifications/notification_screen.dart';
 import 'task_create_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -37,11 +39,14 @@ class _TaskListScreenState extends State<TaskListScreen>
   String? _errorAssigned;
   String? _errorShared;
 
+  int _unreadCount = 0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadAllTabs();
+    _loadUnreadCount();
   }
 
   @override
@@ -156,6 +161,30 @@ class _TaskListScreenState extends State<TaskListScreen>
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await NotificationService().getUnreadCount();
+      if (!mounted) return;
+      setState(() => _unreadCount = count);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        _redirectToLogin();
+      }
+    } catch (_) {
+      // Khong lam phien nguoi dung neu chi loi dem thong bao
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NotificationScreen()),
+    );
+    if (mounted) {
+      _loadUnreadCount();
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -292,6 +321,15 @@ class _TaskListScreenState extends State<TaskListScreen>
       appBar: AppBar(
         title: const Text('Task Manager'),
         actions: [
+          IconButton(
+            icon: Badge(
+              isLabelVisible: _unreadCount > 0,
+              label: Text(_unreadCount > 99 ? '99+' : '$_unreadCount'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            tooltip: 'Thông báo',
+            onPressed: _openNotifications,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Tải lại',
