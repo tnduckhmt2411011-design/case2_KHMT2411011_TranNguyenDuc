@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { formatTaskDetail } = require('./taskController');
+const { logActivity } = require('../services/taskService');
 const { notifyTaskAssigned } = require('../services/notificationService');
 const { sendTaskAssignedEmails } = require('../services/emailService');
 
@@ -88,6 +89,18 @@ const assignUsers = async (req, res, next) => {
 
     await task.save();
 
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'assigned',
+      details: {
+        userIds: uniqueInputIds,
+        primaryAssigneeId: task.primaryAssigneeId
+          ? task.primaryAssigneeId.toString()
+          : null
+      }
+    });
+
     // Tao thong bao trong ung dung cho nhung nguoi moi duoc giao
     await notifyTaskAssigned({
       task,
@@ -130,8 +143,19 @@ const setPrimaryAssignee = async (req, res, next) => {
       return res.status(404).json({ message: 'Nguoi dung khong co trong danh sach duoc giao' });
     }
 
+    const oldPrimaryId = task.primaryAssigneeId
+      ? task.primaryAssigneeId.toString()
+      : null;
+
     task.primaryAssigneeId = userId;
     await task.save();
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'primary_changed',
+      details: { from: oldPrimaryId, to: userId }
+    });
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
     return res.status(200).json({
@@ -161,16 +185,27 @@ const removeAssignee = async (req, res, next) => {
       return res.status(404).json({ message: 'Nguoi dung khong co trong danh sach duoc giao' });
     }
 
+    const wasPrimary = task.primaryAssigneeId
+      ? task.primaryAssigneeId.toString() === userId.toString()
+      : false;
+
     task.assigneeIds = task.assigneeIds.filter(
       (id) => id.toString() !== userId.toString()
     );
 
     // Neu la nguoi phu trach chinh thi primaryAssigneeId = null
-    if (task.primaryAssigneeId && task.primaryAssigneeId.toString() === userId.toString()) {
+    if (wasPrimary) {
       task.primaryAssigneeId = null;
     }
 
     await task.save();
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'unassigned',
+      details: { userId, wasPrimary }
+    });
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
     return res.status(200).json({

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const TaskShare = require('../models/TaskShare');
+const TaskActivity = require('../models/TaskActivity');
 
 /**
  * Tinh toan quyen han thuc te cua nguoi dung doi voi mot cong viec
@@ -111,7 +112,27 @@ const checkTaskAccess = async (taskId, userId) => {
   };
 };
 
+/**
+ * Ghi lich su hoat dong cua cong viec.
+ * Loi ghi log khong duoc lam hong nghiep vu chinh.
+ */
+const logActivity = async ({ taskId, userId, action, details = {} }) => {
+  try {
+    if (!taskId || !userId || !action) return null;
+    return await TaskActivity.create({
+      taskId,
+      userId,
+      action,
+      details
+    });
+  } catch (error) {
+    console.error('Loi ghi lich su hoat dong:', error.message);
+    return null;
+  }
+};
+
 module.exports = {
   getTaskPermissions,
-  checkTaskAccess
+  checkTaskAccess,
+  logActivity
 };

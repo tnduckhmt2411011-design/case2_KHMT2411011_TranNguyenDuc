@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const TaskShare = require('../models/TaskShare');
-const { getTaskPermissions } = require('../services/taskService');
+const TaskActivity = require('../models/TaskActivity');
+const Notification = require('../models/Notification');
+const EmailLog = require('../models/EmailLog');
+const { getTaskPermissions, logActivity } = require('../services/taskService');
 const {
   notifyTaskStatusChanged,
   notifyTaskDueDateChanged
@@ -299,6 +302,13 @@ const createTask = async (req, res, next) => {
 
     await task.save();
 
+    await logActivity({
+      taskId: task._id,
+      userId,
+      action: 'created',
+      details: { title: task.title }
+    });
+
     const permissions = getTaskPermissions(task, userId, null);
     const formatted = await formatTaskDetail(task, permissions);
 
@@ -319,6 +329,10 @@ const updateTask = async (req, res, next) => {
 
     const oldStatus = task.status;
     const oldDueTime = task.dueDate ? task.dueDate.getTime() : null;
+    const oldTitle = task.title;
+    const oldDescription = task.description;
+    const oldPriority = task.priority;
+    const oldStartTime = task.startDate ? task.startDate.getTime() : null;
 
     task.title = title;
     task.description = description;
@@ -328,6 +342,23 @@ const updateTask = async (req, res, next) => {
     task.dueDate = dueDate;
 
     await task.save();
+
+    const newDueTime = task.dueDate ? task.dueDate.getTime() : null;
+    const newStartTime = task.startDate ? task.startDate.getTime() : null;
+    const changedFields = [];
+    if (oldTitle !== task.title) changedFields.push('title');
+    if (oldDescription !== task.description) changedFields.push('description');
+    if (oldPriority !== task.priority) changedFields.push('priority');
+    if (oldStatus !== task.status) changedFields.push('status');
+    if (oldStartTime !== newStartTime) changedFields.push('startDate');
+    if (oldDueTime !== newDueTime) changedFields.push('dueDate');
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'updated',
+      details: { changedFields }
+    });
 
     // Thong bao cho nguoi tao va nguoi duoc giao khi thong tin quan trong thay doi
     const recipients = [task.createdBy, ...(task.assigneeIds || [])];
@@ -350,7 +381,6 @@ const updateTask = async (req, res, next) => {
       }
     }
 
-    const newDueTime = task.dueDate ? task.dueDate.getTime() : null;
     if (oldDueTime !== newDueTime) {
       await notifyTaskDueDateChanged({
         task,
@@ -388,6 +418,13 @@ const updateTaskStatus = async (req, res, next) => {
     await task.save();
 
     if (oldStatus !== task.status) {
+      await logActivity({
+        taskId: task._id,
+        userId: req.user._id,
+        action: 'status_changed',
+        details: { from: oldStatus, to: task.status }
+      });
+
       const recipients = [task.createdBy, ...(task.assigneeIds || [])];
 
       await notifyTaskStatusChanged({
@@ -422,14 +459,49 @@ const deleteTask = async (req, res, next) => {
   try {
     const task = req.task;
 
-    // Xoa tat ca task_shares cua cong viec nay
-    await TaskShare.deleteMany({ taskId: task._id });
+    // Xoa cac du lieu lien quan den cong viec
+    await Promise.all([
+      TaskShare.deleteMany({ taskId: task._id }),
+      TaskActivity.deleteMany({ taskId: task._id }),
+      Notification.deleteMany({ taskId: task._id }),
+      EmailLog.deleteMany({ taskId: task._id })
+    ]);
 
     // Xoa cong viec
     await Task.findByIdAndDelete(task._id);
 
     return res.status(200).json({
       message: 'Xoa cong viec thanh cong'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/tasks/:id/activities (dung requireTaskPermission('view'))
+const getTaskActivities = async (req, res, next) => {
+  try {
+    const activities = await TaskActivity.find({ taskId: req.task._id })
+      .populate('userId', 'fullName email avatarUrl')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: 'Lay lich su hoat dong thanh cong',
+      activities: activities.map((activity) => ({
+        id: activity._id.toString(),
+        taskId: activity.taskId.toString(),
+        user: activity.userId
+          ? {
+              id: activity.userId._id.toString(),
+              fullName: activity.userId.fullName,
+              email: activity.userId.email,
+              avatarUrl: activity.userId.avatarUrl
+            }
+          : null,
+        action: activity.action,
+        details: activity.details,
+        createdAt: activity.createdAt
+      }))
     });
   } catch (error) {
     next(error);
@@ -443,5 +515,6 @@ module.exports = {
   updateTask,
   updateTaskStatus,
   deleteTask,
+  getTaskActivities,
   formatTaskDetail
 };

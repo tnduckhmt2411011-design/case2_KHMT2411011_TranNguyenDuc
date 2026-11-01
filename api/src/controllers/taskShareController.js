@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const TaskShare = require('../models/TaskShare');
 const User = require('../models/User');
+const { logActivity } = require('../services/taskService');
 const { notifyTaskShared } = require('../services/notificationService');
 const { sendTaskSharedEmails } = require('../services/emailService');
 
@@ -135,6 +136,16 @@ const createShares = async (req, res, next) => {
     );
 
     if (newlySharedUsers.length > 0) {
+      await logActivity({
+        taskId: task._id,
+        userId: req.user._id,
+        action: 'shared',
+        details: {
+          userIds: newlySharedUsers.map((user) => user._id.toString()),
+          permission
+        }
+      });
+
       await notifyTaskShared({
         task,
         actor: req.user,
@@ -186,6 +197,17 @@ const updateShare = async (req, res, next) => {
     share.permission = permission;
     await share.save();
 
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'share_updated',
+      details: {
+        shareId: share._id.toString(),
+        userId: share.userId.toString(),
+        permission
+      }
+    });
+
     const populated = await TaskShare.findById(share._id)
       .populate('userId', 'fullName email avatarUrl')
       .populate('sharedBy', 'fullName email avatarUrl');
@@ -235,6 +257,17 @@ const deleteShare = async (req, res, next) => {
     }
 
     await TaskShare.findByIdAndDelete(share._id);
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'share_revoked',
+      details: {
+        shareId: share._id.toString(),
+        userId: share.userId.toString(),
+        permission: share.permission
+      }
+    });
 
     return res.status(200).json({
       message: 'Thu hoi quyen chia se thanh cong'

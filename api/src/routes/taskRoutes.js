@@ -23,6 +23,7 @@ router.put('/:id', requireTaskPermission('edit'), validate(validateTaskUpdateInp
 router.patch('/:id/status', requireTaskPermission('changeStatus'), validate(validateTaskStatusInput), taskController.updateTaskStatus);
 router.delete('/:id', requireTaskPermission('delete'), taskController.deleteTask);
 router.get('/:id/email-logs', requireTaskPermission('view'), emailLogController.getTaskEmailLogs);
+router.get('/:id/activities', requireTaskPermission('view'), taskController.getTaskActivities);
 
 // Sub-routes giao viec va chia se
 router.use('/:id/assignees', assignmentRoutes);
