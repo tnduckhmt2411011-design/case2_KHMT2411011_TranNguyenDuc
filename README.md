@@ -161,10 +161,10 @@ flutter run
 - Gửi email qua `nodemailer` khi: giao việc, chia sẻ công việc, đổi hạn hoàn thành, hoàn thành công việc.
 - Mỗi lần gửi được ghi vào `email_logs` với trạng thái `pending`/`sent`/`failed`, số lần thử và lỗi (nếu có). Lỗi email không làm hỏng thao tác chính.
 - `GET /api/tasks/:id/email-logs`: Xem lịch sử email của công việc (yêu cầu quyền xem công việc).
-- `POST /api/tasks/:id/email-logs/:logId/retry`: Gửi lại email thất bại (chỉ creator, tối đa 5 lần thử).
+- `POST /api/email-logs/:logId/retry`: Gửi lại email thất bại (chỉ creator, tối đa 5 lần thử).
 
 ### 4.6. Nhóm F - Tìm kiếm, lọc, sắp xếp và thống kê (Buổi 3)
-- `GET /api/tasks` hỗ trợ thêm: `q` (tìm trong tiêu đề/mô tả), `status`, `priority`, `assigneeId` (alias `assignee`), `sortBy` (`dueDate|priority|createdAt|updatedAt`), `order` (`asc|desc`). Sắp xếp ưu tiên theo thứ tự logic low < medium < high; công việc không có hạn xếp cuối.
+- `GET /api/tasks` hỗ trợ thêm: `q` (tìm theo tiêu đề công việc), `status`, `priority`, `assigneeId` (alias `assignee`), `sortBy` (`dueDate|priority|createdAt|updatedAt`), `order` (`asc|desc`). Sắp xếp ưu tiên theo thứ tự logic low < medium < high; công việc không có hạn xếp cuối. Tham số không hợp lệ trả 400 kèm thông điệp.
 - `GET /api/statistics/tasks`: Tổng số công việc người dùng có quyền truy cập, phân bố theo trạng thái và ưu tiên.
 - `GET /api/statistics/assignments`: Tổng số việc được giao, số việc là người phụ trách chính, phân bố theo trạng thái.
 - `GET /api/statistics/deadlines`: Danh sách và số lượng công việc quá hạn, sắp đến hạn trong 24 giờ (`windowHours: 24`, không tính việc đã hoàn thành).
