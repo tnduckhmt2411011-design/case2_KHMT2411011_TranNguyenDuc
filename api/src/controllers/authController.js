@@ -1,7 +1,12 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { validateRegisterInput, validateLoginInput } = require('../validators/authValidator');
+const {
+  validateRegisterInput,
+  validateLoginInput,
+  validateUpdateProfileInput,
+  validateChangePasswordInput
+} = require('../validators/authValidator');
 
 // POST /api/auth/register
 const register = async (req, res, next) => {
@@ -116,8 +121,68 @@ const getMe = async (req, res, next) => {
   }
 };
 
+// PUT /api/auth/me
+const updateProfile = async (req, res, next) => {
+  try {
+    const { isValid, errors, data } = validateUpdateProfileInput(req.body);
+    if (!isValid) {
+      return res.status(400).json({ message: errors[0] });
+    }
+
+    const user = req.user;
+    user.fullName = data.fullName;
+    if (data.avatarUrl !== undefined) {
+      user.avatarUrl = data.avatarUrl;
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Cap nhat thong tin ca nhan thanh cong',
+      user: {
+        id: user._id.toString(),
+        fullName: user.fullName,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/auth/change-password
+const changePassword = async (req, res, next) => {
+  try {
+    const { isValid, errors, data } = validateChangePasswordInput(req.body);
+    if (!isValid) {
+      return res.status(400).json({ message: errors[0] });
+    }
+
+    const user = req.user;
+    const isMatch = await bcrypt.compare(data.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mat khau hien tai khong dung' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(data.newPassword, salt);
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Doi mat khau thanh cong'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
-  getMe
+  getMe,
+  updateProfile,
+  changePassword
 };
