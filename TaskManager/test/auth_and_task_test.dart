@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager/models/user.dart';
 import 'package:task_manager/models/task.dart';
+import 'package:task_manager/models/task_share.dart';
 import 'package:task_manager/utils/validators.dart';
 import 'package:task_manager/utils/date_formatter.dart';
 
@@ -136,6 +137,50 @@ void main() {
       expect(task.permissions?.canEdit, true);
       expect(task.permissions?.canDelete, true);
       expect(task.permissions?.canChangeStatus, true);
+    });
+  });
+
+  group('TaskShare and TaskAssignee Model Test', () {
+    test('TaskShare fromJson & labels', () {
+      final json = {
+        'id': 'share_999',
+        'permission': 'editor',
+        'user': {
+          'id': 'u1',
+          'fullName': 'Le Thi Binh',
+          'email': 'binh.le@taskmanager.com'
+        },
+        'sharedBy': {
+          'id': 'u2',
+          'fullName': 'Tran Nguyen Duc',
+          'email': 'duc.tran@taskmanager.com'
+        },
+        'createdAt': '2026-11-01T08:00:00.000Z'
+      };
+
+      final share = TaskShare.fromJson(json);
+      expect(share.id, 'share_999');
+      expect(share.permission, 'editor');
+      expect(share.permissionLabel, 'Chỉnh sửa (Editor)');
+      expect(share.user?.fullName, 'Le Thi Binh');
+      expect(share.sharedBy?.fullName, 'Tran Nguyen Duc');
+      expect(share.createdAt, isNotNull);
+    });
+
+    test('TaskAssignee fromJson', () {
+      final json = {
+        'user': {
+          'id': 'u3',
+          'fullName': 'Nguyen Van An',
+          'email': 'an.nguyen@taskmanager.com'
+        },
+        'isPrimary': true
+      };
+
+      final assignee = TaskAssignee.fromJson(json);
+      expect(assignee.user.id, 'u3');
+      expect(assignee.user.fullName, 'Nguyen Van An');
+      expect(assignee.isPrimary, true);
     });
   });
 
