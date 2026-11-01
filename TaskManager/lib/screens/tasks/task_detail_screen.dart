@@ -6,7 +6,9 @@ import '../../utils/date_formatter.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/priority_badge.dart';
 import '../../widgets/status_badge.dart';
+import '../assignment/assign_task_screen.dart';
 import '../auth/login_screen.dart';
+import '../sharing/task_sharing_screen.dart';
 import 'task_edit_screen.dart';
 
 class TaskDetailScreen extends StatefulWidget {
@@ -97,7 +99,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã xóa công việc'), backgroundColor: Colors.green),
       );
-      Navigator.of(context).pop(true); // true = da thay doi
+      Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.statusCode == 401) {
@@ -175,6 +177,43 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
 
     if (result == true && mounted) {
+      _fetchDetail();
+    }
+  }
+
+  Future<void> _handleAssign() async {
+    final task = _task;
+    if (task == null) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AssignTaskScreen(
+          taskId: task.id,
+          taskTitle: task.title,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      _fetchDetail();
+    }
+  }
+
+  Future<void> _handleShare() async {
+    final task = _task;
+    if (task == null) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TaskSharingScreen(
+          taskId: task.id,
+          taskTitle: task.title,
+          createdById: task.createdBy?.id,
+        ),
+      ),
+    );
+
+    if (mounted) {
       _fetchDetail();
     }
   }
@@ -294,6 +333,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     onPressed: _handleChangeStatus,
                     icon: const Icon(Icons.swap_horiz, size: 18),
                     label: const Text('Đổi trạng thái'),
+                  ),
+                if (perms.canAssign)
+                  ElevatedButton.icon(
+                    onPressed: _handleAssign,
+                    icon: const Icon(Icons.person_add, size: 18),
+                    label: const Text('Giao việc'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                if (perms.canShare)
+                  ElevatedButton.icon(
+                    onPressed: _handleShare,
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text('Chia sẻ'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 if (perms.canDelete)
                   ElevatedButton.icon(
