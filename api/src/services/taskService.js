@@ -3,10 +3,88 @@ const Task = require('../models/Task');
 const TaskShare = require('../models/TaskShare');
 
 /**
- * Kiem tra quyen truy cap cua nguoi dung doi voi mot cong viec
+ * Tinh toan quyen han thuc te cua nguoi dung doi voi mot cong viec
+ * Quy tac: Quyen hieu luc la HOP cac vai tro nguoi do dang co
+ * @param {object} task 
+ * @param {string|mongoose.Types.ObjectId} userId 
+ * @param {object|null} share 
+ * @returns {{ canView: boolean, canEdit: boolean, canChangeStatus: boolean, canDelete: boolean, canAssign: boolean, canShare: boolean, userRole: string|null }}
+ */
+const getTaskPermissions = (task, userId, share = null) => {
+  if (!task || !userId) {
+    return {
+      canView: false,
+      canEdit: false,
+      canChangeStatus: false,
+      canDelete: false,
+      canAssign: false,
+      canShare: false,
+      userRole: null
+    };
+  }
+
+  const userIdStr = (userId._id || userId).toString();
+
+  // 1. Kiem tra xem co phai nguoi tao (creator) khong
+  const createdByIdStr = task.createdBy
+    ? (task.createdBy._id || task.createdBy).toString()
+    : null;
+  const isCreator = Boolean(createdByIdStr && createdByIdStr === userIdStr);
+
+  // 2. Kiem tra xem co phai nguoi duoc giao (assignee) khong
+  const primaryIdStr = task.primaryAssigneeId
+    ? (task.primaryAssigneeId._id || task.primaryAssigneeId).toString()
+    : null;
+  const isPrimary = Boolean(primaryIdStr && primaryIdStr === userIdStr);
+
+  const isAssigneeList = Array.isArray(task.assigneeIds) && task.assigneeIds.some((id) => {
+    const idStr = (id._id || id).toString();
+    return idStr === userIdStr;
+  });
+
+  const isAssignee = Boolean(isPrimary || isAssigneeList);
+
+  // 3. Kiem tra quyen duoc chia se (share)
+  const sharePermission = share ? share.permission : null; // 'viewer' | 'editor'
+  const isEditor = sharePermission === 'editor';
+  const isViewer = sharePermission === 'viewer';
+
+  // Tinh hop cac quyen theo Ma tran quyen (DE muc 9)
+  const canView = Boolean(isCreator || isEditor || isAssignee || isViewer);
+  const canEdit = Boolean(isCreator || isEditor);
+  const canChangeStatus = Boolean(isCreator || isEditor || isAssignee);
+  const canDelete = Boolean(isCreator);
+  const canAssign = Boolean(isCreator);
+  const canShare = Boolean(isCreator);
+
+  // Xac dinh nhan userRole uu tien cho giao dien
+  let userRole = null;
+  if (isCreator) {
+    userRole = 'creator';
+  } else if (isEditor) {
+    userRole = 'editor';
+  } else if (isAssignee) {
+    userRole = 'assignee';
+  } else if (isViewer) {
+    userRole = 'viewer';
+  }
+
+  return {
+    canView,
+    canEdit,
+    canChangeStatus,
+    canDelete,
+    canAssign,
+    canShare,
+    userRole
+  };
+};
+
+/**
+ * Kiem tra quyen truy cap cua nguoi dung doi voi mot cong viec (tuong thich nguoc)
  * @param {string|mongoose.Types.ObjectId} taskId 
  * @param {string|mongoose.Types.ObjectId} userId 
- * @returns {Promise<{ hasAccess: boolean, role: string|null, task: object|null, notFound?: boolean, invalidId?: boolean }>}
+ * @returns {Promise<{ hasAccess: boolean, role: string|null, task: object|null, notFound?: boolean, invalidId?: boolean, permissions: object }>}
  */
 const checkTaskAccess = async (taskId, userId) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
@@ -18,30 +96,22 @@ const checkTaskAccess = async (taskId, userId) => {
     return { notFound: true, hasAccess: false, role: null, task: null };
   }
 
-  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const share = await TaskShare.findOne({
+    taskId: task._id,
+    userId: new mongoose.Types.ObjectId(userId)
+  });
 
-  // 1. Nguoi tao cong viec
-  if (task.createdBy.equals(userObjectId)) {
-    return { hasAccess: true, role: 'creator', task };
-  }
+  const permissions = getTaskPermissions(task, userId, share);
 
-  // 2. Nguoi duoc giao (primaryAssigneeId hoac trong assigneeIds)
-  const isPrimary = task.primaryAssigneeId && task.primaryAssigneeId.equals(userObjectId);
-  const isAssignee = task.assigneeIds && task.assigneeIds.some((id) => id.equals(userObjectId));
-  if (isPrimary || isAssignee) {
-    return { hasAccess: true, role: 'assignee', task };
-  }
-
-  // 3. Nguoi duoc chia se trong TaskShare
-  const share = await TaskShare.findOne({ taskId: task._id, userId: userObjectId });
-  if (share) {
-    return { hasAccess: true, role: share.permission, task };
-  }
-
-  // 4. Khong co quyen
-  return { hasAccess: false, role: null, task };
+  return {
+    hasAccess: permissions.canView,
+    role: permissions.userRole,
+    task,
+    permissions
+  };
 };
 
 module.exports = {
+  getTaskPermissions,
   checkTaskAccess
 };
