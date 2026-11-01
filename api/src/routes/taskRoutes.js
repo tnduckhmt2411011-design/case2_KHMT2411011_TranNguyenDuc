@@ -4,7 +4,11 @@ const taskController = require('../controllers/taskController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requireTaskPermission = require('../middleware/permissionMiddleware');
 const validate = require('../middleware/validateMiddleware');
-const { validateTaskCreateInput } = require('../validators/taskValidator');
+const {
+  validateTaskCreateInput,
+  validateTaskUpdateInput,
+  validateTaskStatusInput
+} = require('../validators/taskValidator');
 
 // Tat ca cac route tasks deu yeu cau token
 router.use(authMiddleware);
@@ -12,5 +16,8 @@ router.use(authMiddleware);
 router.get('/', taskController.getTasks);
 router.post('/', validate(validateTaskCreateInput), taskController.createTask);
 router.get('/:id', requireTaskPermission('view'), taskController.getTaskById);
+router.put('/:id', requireTaskPermission('edit'), validate(validateTaskUpdateInput), taskController.updateTask);
+router.patch('/:id/status', requireTaskPermission('changeStatus'), validate(validateTaskStatusInput), taskController.updateTaskStatus);
+router.delete('/:id', requireTaskPermission('delete'), taskController.deleteTask);
 
 module.exports = router;

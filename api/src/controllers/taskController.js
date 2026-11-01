@@ -200,9 +200,75 @@ const createTask = async (req, res, next) => {
   }
 };
 
+// PUT /api/tasks/:id (dung requireTaskPermission('edit'))
+const updateTask = async (req, res, next) => {
+  try {
+    const task = req.task;
+    const { title, description, priority, status, startDate, dueDate } = req.validatedBody;
+
+    task.title = title;
+    task.description = description;
+    task.priority = priority;
+    task.status = status;
+    task.startDate = startDate;
+    task.dueDate = dueDate;
+
+    await task.save();
+
+    const formatted = await formatTaskDetail(task, req.taskPermissions);
+    return res.status(200).json({
+      message: 'Cap nhat cong viec thanh cong',
+      task: formatted
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /api/tasks/:id/status (dung requireTaskPermission('changeStatus'))
+const updateTaskStatus = async (req, res, next) => {
+  try {
+    const task = req.task;
+    const { status } = req.validatedBody;
+
+    task.status = status;
+    await task.save();
+
+    const formatted = await formatTaskDetail(task, req.taskPermissions);
+    return res.status(200).json({
+      message: 'Cap nhat trang thai thanh cong',
+      task: formatted
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/tasks/:id (dung requireTaskPermission('delete'))
+const deleteTask = async (req, res, next) => {
+  try {
+    const task = req.task;
+
+    // Xoa tat ca task_shares cua cong viec nay
+    await TaskShare.deleteMany({ taskId: task._id });
+
+    // Xoa cong viec
+    await Task.findByIdAndDelete(task._id);
+
+    return res.status(200).json({
+      message: 'Xoa cong viec thanh cong'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTasks,
   getTaskById,
   createTask,
+  updateTask,
+  updateTaskStatus,
+  deleteTask,
   formatTaskDetail
 };
