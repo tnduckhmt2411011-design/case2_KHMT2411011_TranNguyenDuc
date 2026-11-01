@@ -3,11 +3,14 @@ const router = express.Router();
 const taskController = require('../controllers/taskController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requireTaskPermission = require('../middleware/permissionMiddleware');
+const validate = require('../middleware/validateMiddleware');
+const { validateTaskCreateInput } = require('../validators/taskValidator');
 
 // Tat ca cac route tasks deu yeu cau token
 router.use(authMiddleware);
 
 router.get('/', taskController.getTasks);
+router.post('/', validate(validateTaskCreateInput), taskController.createTask);
 router.get('/:id', requireTaskPermission('view'), taskController.getTaskById);
 
 module.exports = router;

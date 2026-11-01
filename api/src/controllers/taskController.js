@@ -168,8 +168,41 @@ const getTaskById = async (req, res, next) => {
   }
 };
 
+// POST /api/tasks
+const createTask = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { title, description, priority, status, startDate, dueDate } = req.validatedBody;
+
+    const task = new Task({
+      title,
+      description,
+      priority,
+      status,
+      startDate,
+      dueDate,
+      createdBy: userId,
+      assigneeIds: [],
+      primaryAssigneeId: null
+    });
+
+    await task.save();
+
+    const permissions = getTaskPermissions(task, userId, null);
+    const formatted = await formatTaskDetail(task, permissions);
+
+    return res.status(201).json({
+      message: 'Tao cong viec thanh cong',
+      task: formatted
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTasks,
   getTaskById,
+  createTask,
   formatTaskDetail
 };
