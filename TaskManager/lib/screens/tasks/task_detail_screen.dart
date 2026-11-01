@@ -7,6 +7,7 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/priority_badge.dart';
 import '../../widgets/status_badge.dart';
 import '../auth/login_screen.dart';
+import 'task_edit_screen.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String taskId;
@@ -65,6 +66,119 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _handleDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: const Text('Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _taskService.deleteTask(widget.taskId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xóa công việc'), backgroundColor: Colors.green),
+      );
+      Navigator.of(context).pop(true); // true = da thay doi
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _handleChangeStatus() async {
+    final task = _task;
+    if (task == null) return;
+
+    final statuses = ['todo', 'in_progress', 'completed'];
+    final labels = ['Chưa thực hiện', 'Đang thực hiện', 'Đã hoàn thành'];
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Đổi trạng thái'),
+        children: List.generate(statuses.length, (i) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(statuses[i]),
+            child: Row(
+              children: [
+                if (task.status == statuses[i])
+                  const Icon(Icons.check, color: Colors.green, size: 20)
+                else
+                  const SizedBox(width: 20),
+                const SizedBox(width: 8),
+                Text(labels[i]),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+
+    if (selected == null || selected == task.status || !mounted) return;
+
+    try {
+      await _taskService.updateTaskStatus(taskId: widget.taskId, status: selected);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã đổi trạng thái'), backgroundColor: Colors.green),
+      );
+      _fetchDetail();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _handleEdit() async {
+    final task = _task;
+    if (task == null) return;
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TaskEditScreen(task: task)),
+    );
+
+    if (result == true && mounted) {
+      _fetchDetail();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,6 +232,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
 
     final task = _task!;
+    final perms = task.permissions;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -161,6 +276,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
+
+          // Nut hanh dong theo quyen
+          if (perms != null) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (perms.canEdit)
+                  ElevatedButton.icon(
+                    onPressed: _handleEdit,
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Sửa'),
+                  ),
+                if (perms.canChangeStatus)
+                  OutlinedButton.icon(
+                    onPressed: _handleChangeStatus,
+                    icon: const Icon(Icons.swap_horiz, size: 18),
+                    label: const Text('Đổi trạng thái'),
+                  ),
+                if (perms.canDelete)
+                  ElevatedButton.icon(
+                    onPressed: _handleDelete,
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text('Xóa'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
           const Divider(),
           const SizedBox(height: 8),
 
