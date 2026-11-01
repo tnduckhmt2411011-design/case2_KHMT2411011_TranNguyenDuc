@@ -1,4 +1,5 @@
 import '../models/task.dart';
+import '../models/task_activity.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 
@@ -32,11 +33,31 @@ class TaskService {
     }
   }
 
-  // Lay danh sach cong viec theo scope (created | assigned | shared | null = all)
-  Future<List<Task>> getTasks({String? scope}) async {
+  // Lay danh sach cong viec theo scope va bo loc
+  Future<List<Task>> getTasks({
+    String? scope,
+    String? q,
+    String? status,
+    String? priority,
+    String? assigneeId,
+    String? sortBy,
+    String? order,
+  }) async {
     final token = await _getValidToken();
 
-    final queryParams = scope != null && scope.isNotEmpty ? '?scope=$scope' : '';
+    final params = <String, String>{};
+    if (scope != null && scope.isNotEmpty) params['scope'] = scope;
+    if (q != null && q.trim().isNotEmpty) params['q'] = q.trim();
+    if (status != null && status.isNotEmpty) params['status'] = status;
+    if (priority != null && priority.isNotEmpty) params['priority'] = priority;
+    if (assigneeId != null && assigneeId.isNotEmpty) {
+      params['assigneeId'] = assigneeId;
+    }
+    if (sortBy != null && sortBy.isNotEmpty) params['sortBy'] = sortBy;
+    if (order != null && order.isNotEmpty) params['order'] = order;
+
+    final queryParams = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
+
     try {
       final response = await _apiClient.get('/tasks$queryParams', token: token);
       if (response is Map<String, dynamic> && response['tasks'] is List) {
@@ -167,6 +188,27 @@ class TaskService {
 
     try {
       await _apiClient.delete('/tasks/$taskId', token: token);
+    } on ApiException catch (e) {
+      _handle401(e);
+      rethrow;
+    }
+  }
+
+  // Lay lich su hoat dong cua cong viec
+  Future<List<TaskActivity>> getTaskActivities(String taskId) async {
+    final token = await _getValidToken();
+
+    try {
+      final response =
+          await _apiClient.get('/tasks/$taskId/activities', token: token);
+      if (response is Map<String, dynamic> && response['activities'] is List) {
+        final list = response['activities'] as List;
+        return list
+            .map((item) =>
+                TaskActivity.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } on ApiException catch (e) {
       _handle401(e);
       rethrow;

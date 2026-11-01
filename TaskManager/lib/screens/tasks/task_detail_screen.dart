@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/task.dart';
+import '../../models/task_activity.dart';
 import '../../services/api_client.dart';
 import '../../services/task_service.dart';
 import '../../utils/date_formatter.dart';
@@ -26,6 +27,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Task? _task;
+  List<TaskActivity> _activities = [];
 
   @override
   void initState() {
@@ -41,9 +43,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     try {
       final task = await _taskService.getTaskById(widget.taskId);
+
+      List<TaskActivity> activities = [];
+      try {
+        activities = await _taskService.getTaskActivities(widget.taskId);
+      } on ApiException catch (e) {
+        if (e.statusCode == 401) rethrow;
+        activities = [];
+      }
+
       if (!mounted) return;
       setState(() {
         _task = task;
+        _activities = activities;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -215,6 +227,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     if (mounted) {
       _fetchDetail();
+    }
+  }
+
+  IconData _activityIcon(String action) {
+    switch (action) {
+      case 'created':
+        return Icons.add_circle_outline;
+      case 'updated':
+        return Icons.edit_outlined;
+      case 'status_changed':
+        return Icons.swap_horiz;
+      case 'assigned':
+        return Icons.person_add_alt_1;
+      case 'unassigned':
+        return Icons.person_remove_alt_1;
+      case 'primary_changed':
+        return Icons.star_outline;
+      case 'shared':
+        return Icons.share_outlined;
+      case 'share_updated':
+        return Icons.manage_accounts_outlined;
+      case 'share_revoked':
+        return Icons.link_off;
+      default:
+        return Icons.history;
     }
   }
 
@@ -515,6 +552,56 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             )
           else
             const Text('Công việc chưa được chia sẻ cho ai'),
+          const SizedBox(height: 16),
+
+          // Lich su hoat dong
+          const Text(
+            'Lịch sử hoạt động',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          if (_activities.isEmpty)
+            const Text('Chưa có hoạt động nào được ghi lại')
+          else
+            ..._activities.map(
+              (activity) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: Colors.grey.shade200,
+                  child: Icon(
+                    _activityIcon(activity.action),
+                    size: 20,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                title: Text(
+                  activity.user?.fullName ?? 'Hệ thống',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(activity.actionLabel),
+                    if (activity.actionDetails.isNotEmpty)
+                      Text(
+                        activity.actionDetails,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    Text(
+                      DateFormatter.formatDateTime(activity.createdAt),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                isThreeLine: true,
+              ),
+            ),
           const SizedBox(height: 24),
         ],
       ),

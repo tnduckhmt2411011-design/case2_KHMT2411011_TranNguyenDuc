@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const TaskShare = require('../models/TaskShare');
 const User = require('../models/User');
+const { logActivity } = require('../services/taskService');
+const { notifyTaskShared } = require('../services/notificationService');
+const { sendTaskSharedEmails } = require('../services/emailService');
 
 // GET /api/tasks/:id/shares (quyen xem)
 const getShares = async (req, res, next) => {
@@ -126,6 +129,39 @@ const createShares = async (req, res, next) => {
       }
     }
 
+    // Thong bao cho nhung nguoi vua duoc chia se (bo qua ban ghi da ton tai)
+    const createdUserIdSet = new Set(created.map((item) => item.user.id));
+    const newlySharedUsers = foundUsers.filter((user) =>
+      createdUserIdSet.has(user._id.toString())
+    );
+
+    if (newlySharedUsers.length > 0) {
+      await logActivity({
+        taskId: task._id,
+        userId: req.user._id,
+        action: 'shared',
+        details: {
+          userIds: newlySharedUsers.map((user) => user._id.toString()),
+          permission
+        }
+      });
+
+      await notifyTaskShared({
+        task,
+        actor: req.user,
+        recipients: newlySharedUsers,
+        permission
+      });
+
+      // Gui email moi chia se (loi email khong lam hong viec chia se)
+      await sendTaskSharedEmails({
+        task,
+        actor: req.user,
+        recipients: newlySharedUsers,
+        permission
+      });
+    }
+
     return res.status(201).json({
       message: 'Chia se cong viec thanh cong',
       created,
@@ -160,6 +196,17 @@ const updateShare = async (req, res, next) => {
 
     share.permission = permission;
     await share.save();
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'share_updated',
+      details: {
+        shareId: share._id.toString(),
+        userId: share.userId.toString(),
+        permission
+      }
+    });
 
     const populated = await TaskShare.findById(share._id)
       .populate('userId', 'fullName email avatarUrl')
@@ -210,6 +257,17 @@ const deleteShare = async (req, res, next) => {
     }
 
     await TaskShare.findByIdAndDelete(share._id);
+
+    await logActivity({
+      taskId: task._id,
+      userId: req.user._id,
+      action: 'share_revoked',
+      details: {
+        shareId: share._id.toString(),
+        userId: share.userId.toString(),
+        permission: share.permission
+      }
+    });
 
     return res.status(200).json({
       message: 'Thu hoi quyen chia se thanh cong'

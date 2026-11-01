@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/task.dart';
+import '../../models/user.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/task_service.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/task_card.dart';
+import '../../widgets/user_selector.dart';
 import '../auth/login_screen.dart';
+import '../notifications/notification_screen.dart';
+import '../profile/profile_screen.dart';
 import 'task_create_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -37,17 +43,51 @@ class _TaskListScreenState extends State<TaskListScreen>
   String? _errorAssigned;
   String? _errorShared;
 
+  int _unreadCount = 0;
+
+  // Bo loc va sap xep danh sach
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String _filterStatus = 'all';
+  String _filterPriority = 'all';
+  User? _filterAssignee;
+  String _sortValue = 'createdAt_desc';
+
+  String get _sortBy => _sortValue.split('_').first;
+  String get _sortOrder => _sortValue.split('_').last;
+
+  bool get _hasActiveFilters =>
+      _searchController.text.trim().isNotEmpty ||
+      _filterStatus != 'all' ||
+      _filterPriority != 'all' ||
+      _filterAssignee != null;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadAllTabs();
+    _loadUnreadCount();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<List<Task>> _fetchTasks(String scope) {
+    return _taskService.getTasks(
+      scope: scope,
+      q: _searchController.text,
+      status: _filterStatus == 'all' ? null : _filterStatus,
+      priority: _filterPriority == 'all' ? null : _filterPriority,
+      assigneeId: _filterAssignee?.id,
+      sortBy: _sortBy,
+      order: _sortOrder,
+    );
   }
 
   Future<void> _loadAllTabs() async {
@@ -64,7 +104,7 @@ class _TaskListScreenState extends State<TaskListScreen>
       _errorCreated = null;
     });
     try {
-      final tasks = await _taskService.getTasks(scope: 'created');
+      final tasks = await _fetchTasks('created');
       if (!mounted) return;
       setState(() {
         _createdTasks = tasks;
@@ -95,7 +135,7 @@ class _TaskListScreenState extends State<TaskListScreen>
       _errorAssigned = null;
     });
     try {
-      final tasks = await _taskService.getTasks(scope: 'assigned');
+      final tasks = await _fetchTasks('assigned');
       if (!mounted) return;
       setState(() {
         _assignedTasks = tasks;
@@ -126,7 +166,7 @@ class _TaskListScreenState extends State<TaskListScreen>
       _errorShared = null;
     });
     try {
-      final tasks = await _taskService.getTasks(scope: 'shared');
+      final tasks = await _fetchTasks('shared');
       if (!mounted) return;
       setState(() {
         _sharedTasks = tasks;
@@ -155,6 +195,255 @@ class _TaskListScreenState extends State<TaskListScreen>
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
+    );
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await NotificationService().getUnreadCount();
+      if (!mounted) return;
+      setState(() => _unreadCount = count);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        _redirectToLogin();
+      }
+    } catch (_) {
+      // Khong lam phien nguoi dung neu chi loi dem thong bao
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NotificationScreen()),
+    );
+    if (mounted) {
+      _loadUnreadCount();
+    }
+  }
+
+  Future<void> _openProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _loadAllTabs();
+    });
+  }
+
+  void _clearFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _filterStatus = 'all';
+      _filterPriority = 'all';
+      _filterAssignee = null;
+      _sortValue = 'createdAt_desc';
+    });
+    _loadAllTabs();
+  }
+
+  Future<void> _pickAssigneeFilter() async {
+    User? selected = _filterAssignee;
+
+    final apply = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Lọc theo người phụ trách'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: UserSelector(
+                    title: 'Tìm người phụ trách',
+                    singleSelect: true,
+                    initialSelected: selected == null ? const [] : [selected!],
+                    onSelectedChanged: (users) {
+                      setDialogState(() {
+                        selected = users.isEmpty ? null : users.first;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Hủy'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Bỏ lọc'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Áp dụng'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (apply == null || !mounted) return;
+
+    setState(() {
+      _filterAssignee = apply ? selected : null;
+    });
+    _loadAllTabs();
+  }
+
+  Widget _buildFilterDropdown({
+    required String value,
+    required Map<String, String> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          iconSize: 18,
+          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          items: options.entries.map((entry) {
+            return DropdownMenuItem<String>(
+              value: entry.key,
+              child: Text(entry.value),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFiltersBar() {
+    return Container(
+      color: Colors.grey.shade50,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên công việc...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      tooltip: 'Xóa từ khóa',
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                        _loadAllTabs();
+                      },
+                    )
+                  : null,
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterDropdown(
+                  value: _filterStatus,
+                  options: const {
+                    'all': 'Mọi trạng thái',
+                    'todo': 'Chưa thực hiện',
+                    'in_progress': 'Đang thực hiện',
+                    'completed': 'Đã hoàn thành',
+                  },
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _filterStatus = value);
+                    _loadAllTabs();
+                  },
+                ),
+                const SizedBox(width: 8),
+                _buildFilterDropdown(
+                  value: _filterPriority,
+                  options: const {
+                    'all': 'Mọi ưu tiên',
+                    'low': 'Ưu tiên thấp',
+                    'medium': 'Ưu tiên trung bình',
+                    'high': 'Ưu tiên cao',
+                  },
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _filterPriority = value);
+                    _loadAllTabs();
+                  },
+                ),
+                const SizedBox(width: 8),
+                _buildFilterDropdown(
+                  value: _sortValue,
+                  options: const {
+                    'createdAt_desc': 'Mới nhất',
+                    'createdAt_asc': 'Cũ nhất',
+                    'dueDate_asc': 'Hạn gần nhất',
+                    'dueDate_desc': 'Hạn xa nhất',
+                    'priority_desc': 'Ưu tiên cao trước',
+                    'priority_asc': 'Ưu tiên thấp trước',
+                  },
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _sortValue = value);
+                    _loadAllTabs();
+                  },
+                ),
+                const SizedBox(width: 8),
+                if (_filterAssignee == null)
+                  ActionChip(
+                    avatar: const Icon(Icons.person_search, size: 18),
+                    label: const Text('Người phụ trách'),
+                    onPressed: _pickAssigneeFilter,
+                  )
+                else
+                  InputChip(
+                    avatar: const Icon(Icons.person, size: 18),
+                    label: Text(_filterAssignee!.fullName),
+                    onPressed: _pickAssigneeFilter,
+                    onDeleted: () {
+                      setState(() => _filterAssignee = null);
+                      _loadAllTabs();
+                    },
+                  ),
+                if (_hasActiveFilters) ...[
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    onPressed: _clearFilters,
+                    icon: const Icon(Icons.filter_alt_off, size: 18),
+                    label: const Text('Xóa lọc'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -293,9 +582,23 @@ class _TaskListScreenState extends State<TaskListScreen>
         title: const Text('Task Manager'),
         actions: [
           IconButton(
+            icon: Badge(
+              isLabelVisible: _unreadCount > 0,
+              label: Text(_unreadCount > 99 ? '99+' : '$_unreadCount'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            tooltip: 'Thông báo',
+            onPressed: _openNotifications,
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Tải lại',
             onPressed: _loadAllTabs,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Tài khoản & thống kê',
+            onPressed: _openProfile,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -317,29 +620,42 @@ class _TaskListScreenState extends State<TaskListScreen>
         tooltip: 'Tạo công việc mới',
         child: const Icon(Icons.add),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildTabContent(
-            isLoading: _isLoadingCreated,
-            error: _errorCreated,
-            tasks: _createdTasks,
-            onRefresh: _loadCreatedTasks,
-            emptyMessage: 'Bạn chưa tạo công việc nào.',
-          ),
-          _buildTabContent(
-            isLoading: _isLoadingAssigned,
-            error: _errorAssigned,
-            tasks: _assignedTasks,
-            onRefresh: _loadAssignedTasks,
-            emptyMessage: 'Chưa có công việc nào được giao cho bạn.',
-          ),
-          _buildTabContent(
-            isLoading: _isLoadingShared,
-            error: _errorShared,
-            tasks: _sharedTasks,
-            onRefresh: _loadSharedTasks,
-            emptyMessage: 'Chưa có công việc nào được chia sẻ với bạn.',
+          _buildFiltersBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTabContent(
+                  isLoading: _isLoadingCreated,
+                  error: _errorCreated,
+                  tasks: _createdTasks,
+                  onRefresh: _loadCreatedTasks,
+                  emptyMessage: _hasActiveFilters
+                      ? 'Không có công việc phù hợp với bộ lọc.'
+                      : 'Bạn chưa tạo công việc nào.',
+                ),
+                _buildTabContent(
+                  isLoading: _isLoadingAssigned,
+                  error: _errorAssigned,
+                  tasks: _assignedTasks,
+                  onRefresh: _loadAssignedTasks,
+                  emptyMessage: _hasActiveFilters
+                      ? 'Không có công việc phù hợp với bộ lọc.'
+                      : 'Chưa có công việc nào được giao cho bạn.',
+                ),
+                _buildTabContent(
+                  isLoading: _isLoadingShared,
+                  error: _errorShared,
+                  tasks: _sharedTasks,
+                  onRefresh: _loadSharedTasks,
+                  emptyMessage: _hasActiveFilters
+                      ? 'Không có công việc phù hợp với bộ lọc.'
+                      : 'Chưa có công việc nào được chia sẻ với bạn.',
+                ),
+              ],
+            ),
           ),
         ],
       ),

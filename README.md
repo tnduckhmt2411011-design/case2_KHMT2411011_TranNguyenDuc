@@ -19,11 +19,12 @@ case2_KHMT2411011_TranNguyenDuc/
 ├── api/                             # Backend RESTful API
 │   ├── src/
 │   │   ├── config/database.js       # Kết nối MongoDB Atlas
-│   │   ├── controllers/             # authController, taskController, userController, assignmentController, taskShareController
+│   │   ├── controllers/             # auth, task, user, assignment, taskShare, notification, emailLog, statistics
 │   │   ├── middleware/              # authMiddleware, permissionMiddleware, validateMiddleware, errorMiddleware
-│   │   ├── models/                  # User.js, Task.js, TaskShare.js
-│   │   ├── routes/                  # authRoutes, taskRoutes, userRoutes, assignmentRoutes, taskShareRoutes
-│   │   ├── services/                # taskService.js (tập trung phân quyền getTaskPermissions)
+│   │   ├── models/                  # User.js, Task.js, TaskShare.js, Notification.js, EmailLog.js, TaskActivity.js
+│   │   ├── routes/                  # authRoutes, taskRoutes, userRoutes, assignmentRoutes, taskShareRoutes, notificationRoutes, statisticsRoutes
+│   │   ├── services/                # taskService.js, notificationService.js, emailService.js
+│   │   ├── utils/                   # emailTemplates.js
 │   │   ├── validators/              # authValidator.js, taskValidator.js
 │   │   ├── app.js                   # Cấu hình Express app
 │   │   └── server.js                # Khởi động server
@@ -33,13 +34,15 @@ case2_KHMT2411011_TranNguyenDuc/
 ├── TaskManager/                     # Frontend Flutter Mobile Client
 │   ├── android/app/src/debug/       # AndroidManifest.xml (usesCleartextTraffic)
 │   ├── lib/
-│   │   ├── models/                  # user.dart, task.dart, task_share.dart
+│   │   ├── models/                  # user.dart, task.dart, task_share.dart, notification.dart, task_activity.dart, statistics.dart
 │   │   ├── screens/
 │   │   │   ├── auth/                # auth_gate.dart, login_screen.dart, register_screen.dart
 │   │   │   ├── tasks/               # task_list_screen.dart, task_detail_screen.dart, task_create_screen.dart, task_edit_screen.dart
 │   │   │   ├── assignment/          # assign_task_screen.dart
-│   │   │   └── sharing/             # task_sharing_screen.dart
-│   │   ├── services/                # api_client.dart, auth_service.dart, task_service.dart, user_service.dart, task_share_service.dart
+│   │   │   ├── sharing/             # task_sharing_screen.dart
+│   │   │   ├── notifications/       # notification_screen.dart
+│   │   │   └── profile/             # profile_screen.dart (hồ sơ, đổi mật khẩu, thống kê)
+│   │   ├── services/                # api_client, auth, task, user, task_share, notification, statistics
 │   │   ├── utils/                   # constants.dart, validators.dart, date_formatter.dart
 │   │   ├── widgets/                 # task_card.dart, status_badge.dart, priority_badge.dart, loading_view.dart, user_selector.dart
 │   │   ├── app.dart
@@ -61,8 +64,16 @@ PORT=3000
 MONGODB_URI=mongodb+srv://<username>:<password>@duc16.9mr2vnm.mongodb.net/task_manager?retryWrites=true&w=majority
 JWT_SECRET=chuoi_hex_ngau_nhien_32_bytes
 JWT_EXPIRES_IN=7d
+# Cấu hình gửi email (nodemailer)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+EMAIL_FROM=Task Manager <no-reply@taskmanager.com>
 ```
-> **Lưu ý bảo mật:** File `.env` chứa mật khẩu cơ sở dữ liệu và JWT secret tuyệt đối không commit lên Git (đã được cấu hình trong `.gitignore`).
+> **Lưu ý bảo mật:** File `.env` chứa mật khẩu cơ sở dữ liệu, JWT secret và mật khẩu ứng dụng email tuyệt đối không commit lên Git (đã được cấu hình trong `.gitignore`).
+> Nếu chưa cấu hình SMTP, API vẫn hoạt động bình thường; email được ghi nhận ở trạng thái `failed` trong `email_logs` và không làm hỏng nghiệp vụ giao việc/chia sẻ.
 
 ### 3.2. Cài đặt và chạy Backend
 ```bash
@@ -86,7 +97,7 @@ flutter run
 
 ---
 
-## 4. Các chức năng và Endpoint đã hoàn thành (Buổi 1 & Buổi 2)
+## 4. Các chức năng và Endpoint đã hoàn thành (Buổi 1, 2 & 3)
 
 ### 4.1. Nhóm A - Xác thực tài khoản
 - `POST /api/auth/register`: Đăng ký tài khoản (validate fullName không rỗng, email hợp lệ, password >= 6 ký tự, băm bcryptjs, email trùng trả 409, không trả passwordHash).
@@ -111,7 +122,7 @@ flutter run
 - `GET /api/tasks/:id`: Lấy chi tiết công việc kèm đối tượng permissions `{ canEdit, canChangeStatus, canDelete, canAssign, canShare }` phục vụ hiển thị nút tương tác trên app.
 - `PUT /api/tasks/:id`: Cập nhật thông tin công việc (creator và editor; chỉ nhận `title, description, startDate, dueDate, priority, status`).
 - `PATCH /api/tasks/:id/status`: Đổi trạng thái công việc (`todo`, `in_progress`, `completed`).
-- `DELETE /api/tasks/:id`: Xóa công việc và cascade xóa toàn bộ bản ghi `TaskShare` liên quan (chỉ creator).
+- `DELETE /api/tasks/:id`: Xóa công việc và cascade xóa toàn bộ dữ liệu liên quan (`TaskShare`, `TaskActivity`, `Notification`, `EmailLog`) (chỉ creator).
 - `GET /api/users/search?q=`: Tìm kiếm người dùng theo tên hoặc email (trim >= 2 ký tự, thoát ký tự đặc biệt regex, giới hạn tối đa 10 kết quả, không trả `passwordHash`).
 - `GET /api/users/:id`: Lấy thông tin công khai của người dùng theo ID (400 nếu sai định dạng, 404 nếu không tìm thấy).
 - `GET /api/tasks/:id/assignees`: Lấy danh sách người được giao và người phụ trách chính.
@@ -133,7 +144,35 @@ flutter run
 - `TaskDetailScreen`: Hiển thị chi tiết công việc, người tạo, người phụ trách chính, danh sách người được giao và chia sẻ. Các nút bấm hành động (Sửa, Đổi trạng thái, Giao việc, Chia sẻ, Xóa) tự động ẩn/hiện theo quyền `permissions` từ backend.
 - `AssignTaskScreen`: Giao diện giao việc cho nhiều người bằng `UserSelector` (tìm kiếm debounce 400ms), chọn người phụ trách chính, hủy giao việc.
 - `TaskSharingScreen`: Giao diện chia sẻ cho nhiều người, chọn quyền `viewer`/`editor`, cập nhật quyền và thu hồi quyền chia sẻ có hộp thoại xác nhận.
+- `TaskListScreen` (Buổi 3): Thanh tìm kiếm theo từ khóa, bộ lọc trạng thái/ưu tiên/người được giao, sắp xếp theo hạn hoàn thành/ưu tiên/ngày tạo/ngày cập nhật; huy hiệu số thông báo chưa đọc trên AppBar.
+- `NotificationScreen` (Buổi 3): Danh sách thông báo trong ứng dụng, đánh dấu đã đọc từng thông báo hoặc tất cả, điều hướng nhanh tới công việc liên quan.
+- `ProfileScreen` (Buổi 3): Xem/cập nhật họ tên và ảnh đại diện, đổi mật khẩu, xem thống kê công việc, giao việc và hạn hoàn thành.
+- `TaskDetailScreen` (Buổi 3): Bổ sung mục "Lịch sử hoạt động" hiển thị người thực hiện, hành động, chi tiết thay đổi và thời gian.
 - Đầy đủ thông báo kết quả bằng SnackBar; tự động điều hướng về màn hình đăng nhập khi gặp lỗi 401.
+
+### 4.4. Nhóm D - Thông báo trong ứng dụng (Buổi 3)
+- `GET /api/notifications`: Lấy danh sách thông báo của chính người dùng (mới nhất trước).
+- `GET /api/notifications/unread-count`: Đếm số thông báo chưa đọc.
+- `PATCH /api/notifications/:id/read`: Đánh dấu một thông báo đã đọc (chỉ chủ sở hữu).
+- `PATCH /api/notifications/read-all`: Đánh dấu tất cả thông báo đã đọc.
+- Tự động sinh thông báo khi: giao việc (`task_assigned`), chia sẻ (`task_shared`), đổi trạng thái (`task_status_changed`/`task_completed`), đổi hạn hoàn thành (`task_due_changed`). Người thực hiện hành động không nhận thông báo cho chính hành động đó; thông báo trùng trong thời gian ngắn được gộp.
+
+### 4.5. Nhóm E - Gửi email thông báo (Buổi 3)
+- Gửi email qua `nodemailer` khi: giao việc, chia sẻ công việc, đổi hạn hoàn thành, hoàn thành công việc.
+- Mỗi lần gửi được ghi vào `email_logs` với trạng thái `pending`/`sent`/`failed`, số lần thử và lỗi (nếu có). Lỗi email không làm hỏng thao tác chính.
+- `GET /api/tasks/:id/email-logs`: Xem lịch sử email của công việc (yêu cầu quyền xem công việc).
+- `POST /api/email-logs/:logId/retry`: Gửi lại email thất bại (chỉ creator, tối đa 5 lần thử).
+
+### 4.6. Nhóm F - Tìm kiếm, lọc, sắp xếp và thống kê (Buổi 3)
+- `GET /api/tasks` hỗ trợ thêm: `q` (tìm theo tiêu đề công việc), `status`, `priority`, `assigneeId` (alias `assignee`), `sortBy` (`dueDate|priority|createdAt|updatedAt`), `order` (`asc|desc`). Sắp xếp ưu tiên theo thứ tự logic low < medium < high; công việc không có hạn xếp cuối. Tham số không hợp lệ trả 400 kèm thông điệp.
+- `GET /api/statistics/tasks`: Tổng số công việc người dùng có quyền truy cập, phân bố theo trạng thái và ưu tiên.
+- `GET /api/statistics/assignments`: Tổng số việc được giao, số việc là người phụ trách chính, phân bố theo trạng thái.
+- `GET /api/statistics/deadlines`: Danh sách và số lượng công việc quá hạn, sắp đến hạn trong 24 giờ (`windowHours: 24`, không tính việc đã hoàn thành).
+
+### 4.7. Nhóm G - Hồ sơ cá nhân và lịch sử hoạt động (Buổi 3)
+- `PUT /api/auth/me`: Cập nhật `fullName` (bắt buộc, <= 100 ký tự) và `avatarUrl` (tùy chọn, <= 500 ký tự). Không cho đổi email qua endpoint này.
+- `PUT /api/auth/change-password`: Đổi mật khẩu, kiểm tra mật khẩu hiện tại, mật khẩu mới >= 6 ký tự và khác mật khẩu cũ.
+- `GET /api/tasks/:id/activities`: Lịch sử hoạt động của công việc (yêu cầu quyền xem), ghi nhận các hành động `created`, `updated`, `status_changed`, `assigned`, `unassigned`, `primary_changed`, `shared`, `share_updated`, `share_revoked`.
 
 ---
 
@@ -147,7 +186,14 @@ flutter run
 
 ---
 
-## 6. Phạm vi công việc còn lại (Dành cho Buổi 3)
-- **Email thông báo:** Gửi email tự động khi giao việc/chia sẻ/hoàn thành (`emailService`, `email_logs`).
-- **Thông báo trong ứng dụng:** Collection `notifications`, đếm thông báo chưa đọc, đánh dấu đã đọc.
-- **Tiện ích & Thống kê:** Tìm kiếm công việc theo từ khóa, lọc theo trạng thái/ưu tiên, thống kê tiến độ (`/api/statistics`).
+## 6. Tổng kết Buổi 3
+- **Đã hoàn thành:** Thông báo trong ứng dụng, gửi email qua nodemailer kèm `email_logs` và gửi lại, tìm kiếm/lọc/sắp xếp công việc, thống kê công việc - giao việc - hạn hoàn thành, hồ sơ cá nhân, đổi mật khẩu và lịch sử hoạt động công việc.
+- **Quyết định thiết kế:**
+  - Quyền hạn được kiểm tra tập trung ở backend (`getTaskPermissions` + `requireTaskPermission`); giao diện chỉ ẩn/hiện nút theo `permissions` trả về, không thay thế kiểm tra phía server.
+  - "Sắp đến hạn" được định nghĩa là hạn hoàn thành trong vòng 24 giờ tới và không tính công việc đã hoàn thành.
+  - Sắp xếp theo ưu tiên dùng thứ tự logic low < medium < high; công việc không có hạn hoàn thành luôn xếp cuối.
+  - Gửi email thất bại chỉ ghi log `failed`, không rollback thao tác giao việc/chia sẻ/đổi hạn/hoàn thành.
+  - Xóa công việc cascade cả `TaskShare`, `TaskActivity`, `Notification`, `EmailLog` để tránh dữ liệu mồ côi.
+- **Kiểm thử:** Đã chạy `flutter analyze` (không lỗi), `flutter test` (12 test pass), kiểm thử API với 4 vai trò (creator, assignee, editor, viewer) và người không liên quan, kiểm thử trên Android Emulator.
+- **Lưu ý môi trường:** Phiên làm việc không truy cập được MongoDB MCP nên việc kiểm tra dữ liệu Atlas được thực hiện gián tiếp qua API và script Mongoose cục bộ; không thực hiện thao tác xóa database/collection/cluster.
+- **Hạn chế còn lại:** Cần cấu hình SMTP thật trong `api/.env` để gửi email ra ngoài; môi trường kiểm thử đã dùng SMTP sink cục bộ.
