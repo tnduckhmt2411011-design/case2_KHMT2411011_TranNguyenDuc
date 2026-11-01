@@ -3,6 +3,7 @@ const Task = require('../models/Task');
 const User = require('../models/User');
 const { formatTaskDetail } = require('./taskController');
 const { notifyTaskAssigned } = require('../services/notificationService');
+const { sendTaskAssignedEmails } = require('../services/emailService');
 
 // GET /api/tasks/:id/assignees (quyen xem)
 const getAssignees = async (req, res, next) => {
@@ -89,6 +90,13 @@ const assignUsers = async (req, res, next) => {
 
     // Tao thong bao trong ung dung cho nhung nguoi moi duoc giao
     await notifyTaskAssigned({
+      task,
+      actor: req.user,
+      recipients: newlyAssignedUsers
+    });
+
+    // Gui email cho nhung nguoi moi duoc giao (loi email khong lam hong viec giao)
+    await sendTaskAssignedEmails({
       task,
       actor: req.user,
       recipients: newlyAssignedUsers

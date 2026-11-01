@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const TaskShare = require('../models/TaskShare');
 const User = require('../models/User');
 const { notifyTaskShared } = require('../services/notificationService');
+const { sendTaskSharedEmails } = require('../services/emailService');
 
 // GET /api/tasks/:id/shares (quyen xem)
 const getShares = async (req, res, next) => {
@@ -135,6 +136,14 @@ const createShares = async (req, res, next) => {
 
     if (newlySharedUsers.length > 0) {
       await notifyTaskShared({
+        task,
+        actor: req.user,
+        recipients: newlySharedUsers,
+        permission
+      });
+
+      // Gui email moi chia se (loi email khong lam hong viec chia se)
+      await sendTaskSharedEmails({
         task,
         actor: req.user,
         recipients: newlySharedUsers,

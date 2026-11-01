@@ -6,6 +6,10 @@ const {
   notifyTaskStatusChanged,
   notifyTaskDueDateChanged
 } = require('../services/notificationService');
+const {
+  sendTaskDueChangedEmails,
+  sendTaskCompletedEmails
+} = require('../services/emailService');
 
 // Helper dinh dang chi tiet mot cong viec tra ve client (kem permissions)
 const formatTaskDetail = async (taskDoc, permissions) => {
@@ -233,11 +237,26 @@ const updateTask = async (req, res, next) => {
         fromStatus: oldStatus,
         toStatus: task.status
       });
+
+      if (task.status === 'completed') {
+        await sendTaskCompletedEmails({
+          task,
+          actor: req.user,
+          recipients
+        });
+      }
     }
 
     const newDueTime = task.dueDate ? task.dueDate.getTime() : null;
     if (oldDueTime !== newDueTime) {
       await notifyTaskDueDateChanged({
+        task,
+        actor: req.user,
+        recipients,
+        oldDueDate: oldDueTime
+      });
+
+      await sendTaskDueChangedEmails({
         task,
         actor: req.user,
         recipients,
@@ -266,13 +285,23 @@ const updateTaskStatus = async (req, res, next) => {
     await task.save();
 
     if (oldStatus !== task.status) {
+      const recipients = [task.createdBy, ...(task.assigneeIds || [])];
+
       await notifyTaskStatusChanged({
         task,
         actor: req.user,
-        recipients: [task.createdBy, ...(task.assigneeIds || [])],
+        recipients,
         fromStatus: oldStatus,
         toStatus: task.status
       });
+
+      if (task.status === 'completed') {
+        await sendTaskCompletedEmails({
+          task,
+          actor: req.user,
+          recipients
+        });
+      }
     }
 
     const formatted = await formatTaskDetail(task, req.taskPermissions);
