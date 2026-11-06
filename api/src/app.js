@@ -34,6 +34,11 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/email-logs', emailLogRoutes);
 
+// Middleware xu ly duong dan khong ton tai (404 JSON)
+app.use((req, res) => {
+  res.status(404).json({ message: 'Đường dẫn không tồn tại' });
+});
+
 // Middleware xu ly loi
 app.use(errorMiddleware);
 

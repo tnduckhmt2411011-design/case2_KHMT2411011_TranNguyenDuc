@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AppConstants {
   static String get baseUrl {
+    const envUrl = String.fromEnvironment('API_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
     if (kIsWeb) {
       return 'http://localhost:3000/api';
     }
