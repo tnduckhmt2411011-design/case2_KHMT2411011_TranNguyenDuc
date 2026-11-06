@@ -166,14 +166,48 @@ flutter run
 ### 4.5. Nhóm E - Gửi email thông báo (Buổi 3)
 - Gửi email qua `nodemailer` khi: giao việc, chia sẻ công việc, đổi hạn hoàn thành, hoàn thành công việc.
 - Mỗi lần gửi được ghi vào `email_logs` với trạng thái `pending`/`sent`/`failed`, số lần thử và lỗi (nếu có). Lỗi email không làm hỏng thao tác chính.
-- `GET /api/tasks/:id/email-logs`: Xem lịch sử email của công việc (yêu cầu quyền xem công việc).
+- `GET /api/tasks/:id/email-logs`: Xem lịch sử email của công việc (chỉ người tạo - creator mới có quyền truy cập; người khác nhận 403 Forbidden).
 - `POST /api/email-logs/:logId/retry`: Gửi lại email thất bại (chỉ creator, tối đa 5 lần thử).
 
-### 4.6. Nhóm F - Tìm kiếm, lọc, sắp xếp và thống kê (Buổi 3)
-- `GET /api/tasks` hỗ trợ thêm: `q` (tìm theo tiêu đề công việc), `status`, `priority`, `assigneeId` (alias `assignee`), `sortBy` (`dueDate|priority|createdAt|updatedAt`), `order` (`asc|desc`). Sắp xếp ưu tiên theo thứ tự logic low < medium < high; công việc không có hạn xếp cuối. Tham số không hợp lệ trả 400 kèm thông điệp.
-- `GET /api/statistics/tasks`: Tổng số công việc người dùng có quyền truy cập, phân bố theo trạng thái và ưu tiên.
-- `GET /api/statistics/assignments`: Tổng số việc được giao, số việc là người phụ trách chính, phân bố theo trạng thái.
-- `GET /api/statistics/deadlines`: Danh sách và số lượng công việc quá hạn, sắp đến hạn trong 24 giờ (`windowHours: 24`, không tính việc đã hoàn thành).
+### 4.6. Nhóm E & F - Thống kê và Lịch sử hoạt động
+- `GET /api/statistics/tasks`: Tổng số công việc người dùng có quyền truy cập, phân bố theo trạng thái (`todo`, `in_progress`, `completed`) và ưu tiên (`low`, `medium`, `high`). Người chưa có công việc nào nhận toàn số 0.
+- `GET /api/statistics/assignments`: Tổng số việc được giao, số việc là người phụ trách chính (`primaryAssignee`), phân bố theo trạng thái.
+- `GET /api/statistics/deadlines`: Thống kê hạn hoàn thành công việc:
+  - **Định nghĩa quá hạn (`overdue`):** `dueDate < hiện tại` và trạng thái khác `completed` (công việc đã hoàn thành không tính là quá hạn).
+  - **Định nghĩa sắp đến hạn (`dueSoon` / `upcoming`):** `hiện tại <= dueDate <= hiện tại + days * 24h` và trạng thái khác `completed` (không tính việc đã hoàn thành hoặc đã quá hạn).
+  - **Tham số `days`:** Nhận số nguyên từ 1 đến 30 (mặc định là 3 ngày). Nếu truyền `days` ngoài khoảng 1-30 hoặc không hợp lệ, API trả về `400 Bad Request`.
+  - **Giới hạn danh sách:** Mảng `overdue` và `upcoming` được giới hạn tối đa 10 mục mới nhất.
+  - **Ví dụ phản hồi:**
+    ```json
+    {
+      "message": "Lay thong ke han hoan thanh thanh cong",
+      "days": 3,
+      "windowHours": 72,
+      "overdueCount": 1,
+      "upcomingCount": 2,
+      "dueSoonCount": 2,
+      "overdue": [
+        {
+          "id": "672465e99876543210abcdef",
+          "title": "Hoàn thiện báo cáo",
+          "status": "in_progress",
+          "priority": "high",
+          "dueDate": "2026-11-04T10:00:00.000Z"
+        }
+      ],
+      "upcoming": [
+        {
+          "id": "672465e99876543210abcdee",
+          "title": "Kiểm thử hệ thống",
+          "status": "todo",
+          "priority": "medium",
+          "dueDate": "2026-11-08T17:00:00.000Z"
+        }
+      ]
+    }
+    ```
+- `GET /api/tasks/:id/activities`: Lịch sử hoạt động của công việc, sắp xếp theo thứ tự mới nhất trước (`createdAt: -1`). Ghi nhận các hành động: `created`, `updated`, `status_changed`, `assigned`, `unassigned`, `primary_changed`, `shared`, `share_updated`, `share_revoked`. Người lạ không có quyền xem công việc bị từ chối với `403 Forbidden`.
+- `GET /api/tasks` hỗ trợ bộ lọc: `q` (tìm theo tiêu đề), `status`, `priority`, `assigneeId`, `sortBy` (`dueDate|priority|createdAt|updatedAt`), `order` (`asc|desc`).
 
 ### 4.7. Nhóm G - Hồ sơ cá nhân và lịch sử hoạt động (Buổi 3)
 - `PUT /api/auth/me`: Cập nhật `fullName` (bắt buộc, <= 100 ký tự) và `avatarUrl` (tùy chọn, <= 500 ký tự). Không cho đổi email qua endpoint này.
@@ -203,3 +237,10 @@ flutter run
 - **Kiểm thử:** Đã chạy `flutter analyze` (không lỗi), `flutter test` (12 test pass), kiểm thử API với 4 vai trò (creator, assignee, editor, viewer) và người không liên quan, kiểm thử trên Android Emulator.
 - **Lưu ý môi trường:** Phiên làm việc không truy cập được MongoDB MCP nên việc kiểm tra dữ liệu Atlas được thực hiện gián tiếp qua API và script Mongoose cục bộ; không thực hiện thao tác xóa database/collection/cluster.
 - **Hạn chế còn lại:** Cần cấu hình SMTP thật trong `api/.env` để gửi email ra ngoài; môi trường kiểm thử đã dùng SMTP sink cục bộ.
+
+---
+
+## 7. Quy trình Git và Báo cáo Minh bạch
+- **Giai đoạn 0 (Khởi tạo dự án):** Các commit khởi tạo cấu trúc ban đầu được đẩy trực tiếp lên `main` (`7b20468` khởi tạo repository & README, `7a1fa75` khởi tạo Node.js API, `cf40102` khởi tạo Flutter App) theo yêu cầu thiết lập ban đầu "commit đầu tiên là push đầu tiên".
+- **Sửa lỗi biên dịch Kotlin:** Có 01 commit nóng trực tiếp trên `main` (`53b1e89`: `fix(app): tat incremental compilation kotlin tranh loi khac o dia`) để giải quyết triệt để lỗi biên dịch chéo ổ đĩa trên Windows khi chạy `flutter run`.
+- **Phân nhánh Nhóm E (Thống kê):** Chức năng thống kê ban đầu được cài đặt trong nhánh `d-thong-bao-email` (tại commit `ebee89b` và `d43138d`). Sau đợt kiểm toán độc lập, nhánh chuyên biệt `e-thong-ke` đã được khởi tạo để bổ sung toàn diện bộ kiểm thử tích hợp (`node --test` trong `api/tests/`), kiểm thử widget Flutter (`statistics_test.dart`) và tài liệu kỹ thuật chi tiết.

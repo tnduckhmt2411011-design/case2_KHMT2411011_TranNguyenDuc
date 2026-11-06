@@ -88,9 +88,20 @@ const getAssignmentStatistics = async (req, res, next) => {
 // GET /api/statistics/deadlines
 const getDeadlineStatistics = async (req, res, next) => {
   try {
+    let days = 3;
+    if (req.query.days !== undefined) {
+      const parsedDays = Number(req.query.days);
+      if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 30) {
+        return res.status(400).json({
+          message: 'Tham so days phai la so nguyen tu 1 den 30'
+        });
+      }
+      days = parsedDays;
+    }
+
     const now = new Date();
     const upcomingLimit = new Date(
-      now.getTime() + UPCOMING_WINDOW_HOURS * 60 * 60 * 1000
+      now.getTime() + days * 24 * 60 * 60 * 1000
     );
 
     const accessibleFilter = await buildAccessibleFilter(req.user._id);
@@ -111,11 +122,11 @@ const getDeadlineStatistics = async (req, res, next) => {
       dueDate: task.dueDate
     });
 
-    const overdue = tasks
+    const overdueAll = tasks
       .filter((task) => new Date(task.dueDate).getTime() < now.getTime())
       .map(formatTask);
 
-    const upcoming = tasks
+    const upcomingAll = tasks
       .filter((task) => {
         const dueTime = new Date(task.dueDate).getTime();
         return dueTime >= now.getTime() && dueTime <= upcomingLimit.getTime();
@@ -124,11 +135,14 @@ const getDeadlineStatistics = async (req, res, next) => {
 
     return res.status(200).json({
       message: 'Lay thong ke han hoan thanh thanh cong',
-      windowHours: UPCOMING_WINDOW_HOURS,
-      overdueCount: overdue.length,
-      upcomingCount: upcoming.length,
-      overdue,
-      upcoming
+      days,
+      windowHours: days * 24,
+      overdueCount: overdueAll.length,
+      upcomingCount: upcomingAll.length,
+      dueSoonCount: upcomingAll.length,
+      overdue: overdueAll.slice(0, 10),
+      upcoming: upcomingAll.slice(0, 10),
+      dueSoon: upcomingAll.slice(0, 10)
     });
   } catch (error) {
     next(error);
