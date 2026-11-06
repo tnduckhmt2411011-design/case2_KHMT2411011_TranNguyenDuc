@@ -221,7 +221,7 @@ class TaskService {
 
     try {
       final response =
-          await _apiClient.get('/tasks//email-logs', token: token);
+          await _apiClient.get('/tasks/$taskId/email-logs', token: token);
       if (response is Map<String, dynamic> && response['emailLogs'] is List) {
         final list = response['emailLogs'] as List;
         return list
