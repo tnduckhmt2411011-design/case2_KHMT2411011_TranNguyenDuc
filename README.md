@@ -95,6 +95,11 @@ flutter run
 - Trên **máy ảo Android Emulator**, base URL được định tuyến qua `http://10.0.2.2:3000/api` (cấu hình trong `lib/utils/constants.dart`).
 - Để cho phép giao tiếp HTTP trong môi trường debug, cờ `android:usesCleartextTraffic="true"` đã được bật tại `TaskManager/android/app/src/debug/AndroidManifest.xml`.
 - **Lưu ý về bảo mật mạng:** Giao tiếp HTTP không mã hóa tới `10.0.2.2` chỉ được cho phép ở bản debug thông qua `android:usesCleartextTraffic="true"`. Bản release (`flutter build apk --release`) chỉ khai báo quyền `android.permission.INTERNET` và yêu cầu API backend phải triển khai qua giao thức HTTPS có mã hóa để đảm bảo an toàn dữ liệu.
+- **Chạy trên thiết bị thật (Physical Device):** Có thể ghi đè địa chỉ API bằng cờ `--dart-define`:
+  ```bash
+  flutter run --dart-define=API_URL=http://<ip-máy-tính>:3000/api
+  ```
+  (Yêu cầu máy tính và điện thoại kết nối cùng mạng Wi-Fi/LAN và cổng 3000 được tường lửa máy tính cho phép).
 
 ---
 
