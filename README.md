@@ -128,7 +128,7 @@ flutter run
 - `GET /api/tasks/:id`: Lấy chi tiết công việc kèm đối tượng permissions `{ canEdit, canChangeStatus, canDelete, canAssign, canShare }` phục vụ hiển thị nút tương tác trên app.
 - `PUT /api/tasks/:id`: Cập nhật thông tin công việc (creator và editor; chỉ nhận `title, description, startDate, dueDate, priority, status`).
 - `PATCH /api/tasks/:id/status`: Đổi trạng thái công việc (`todo`, `in_progress`, `completed`).
-- `DELETE /api/tasks/:id`: Xóa công việc và cascade xóa toàn bộ dữ liệu liên quan (`TaskShare`, `TaskActivity`, `Notification`, `EmailLog`) (chỉ creator).
+- `DELETE /api/tasks/:id`: Xóa công việc (chỉ creator); cascade xóa `TaskShare` và `TaskActivity`; giữ lại `Notification` và `EmailLog` để bảo toàn lịch sử kiểm toán (audit trail) theo yêu cầu chuẩn Đề bài mục 4. Khi người dùng mở thông báo của công việc đã bị xóa, ứng dụng hiển thị thông điệp rõ ràng và bộ đếm chưa đọc vẫn hoạt động chính xác.
 - `GET /api/users/search?q=`: Tìm kiếm người dùng theo tên hoặc email (trim >= 2 ký tự, thoát ký tự đặc biệt regex, giới hạn tối đa 10 kết quả, không trả `passwordHash`).
 - `GET /api/users/:id`: Lấy thông tin công khai của người dùng theo ID (400 nếu sai định dạng, 404 nếu không tìm thấy).
 - `GET /api/tasks/:id/assignees`: Lấy danh sách người được giao và người phụ trách chính.

@@ -460,11 +460,10 @@ const deleteTask = async (req, res, next) => {
     const task = req.task;
 
     // Xoa cac du lieu lien quan den cong viec
+    // Giu lai Notification va EmailLog de bao toan lich su audit trail theo de bai muc 4
     await Promise.all([
       TaskShare.deleteMany({ taskId: task._id }),
-      TaskActivity.deleteMany({ taskId: task._id }),
-      Notification.deleteMany({ taskId: task._id }),
-      EmailLog.deleteMany({ taskId: task._id })
+      TaskActivity.deleteMany({ taskId: task._id })
     ]);
 
     // Xoa cong viec
