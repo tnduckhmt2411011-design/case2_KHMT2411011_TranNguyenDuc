@@ -6,6 +6,7 @@ class TaskPermissions {
   final bool canDelete;
   final bool canAssign;
   final bool canShare;
+  final bool canViewEmailLogs;
 
   TaskPermissions({
     this.canEdit = false,
@@ -13,6 +14,7 @@ class TaskPermissions {
     this.canDelete = false,
     this.canAssign = false,
     this.canShare = false,
+    this.canViewEmailLogs = false,
   });
 
   factory TaskPermissions.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,7 @@ class TaskPermissions {
       canDelete: json['canDelete'] == true,
       canAssign: json['canAssign'] == true,
       canShare: json['canShare'] == true,
+      canViewEmailLogs: json['canViewEmailLogs'] == true,
     );
   }
 }

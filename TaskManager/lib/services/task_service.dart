@@ -214,4 +214,24 @@ class TaskService {
       rethrow;
     }
   }
+
+  // Lay lich su gui email cua cong viec (chi danh cho creator)
+  Future<List<Map<String, dynamic>>> getTaskEmailLogs(String taskId) async {
+    final token = await _getValidToken();
+
+    try {
+      final response =
+          await _apiClient.get('/tasks//email-logs', token: token);
+      if (response is Map<String, dynamic> && response['emailLogs'] is List) {
+        final list = response['emailLogs'] as List;
+        return list
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+      }
+      return [];
+    } on ApiException catch (e) {
+      _handle401(e);
+      rethrow;
+    }
+  }
 }
