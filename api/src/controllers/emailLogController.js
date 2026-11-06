@@ -49,7 +49,7 @@ const retryEmailLogById = async (req, res, next) => {
     }
 
     if (!log.taskId) {
-      return res.status(400).json({ message: 'Email nay khong gan voi cong viec nao' });
+      return res.status(403).json({ message: 'Email nay khong gan voi cong viec nao' });
     }
 
     const task = await Task.findById(log.taskId);
@@ -64,7 +64,7 @@ const retryEmailLogById = async (req, res, next) => {
     });
     const permissions = getTaskPermissions(task, req.user._id, share);
 
-    if (!permissions.canShare) {
+    if (!permissions.canViewEmailLogs) {
       return res.status(403).json({
         message: 'Ban khong co quyen thu gui lai email cua cong viec nay'
       });

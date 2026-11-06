@@ -38,13 +38,17 @@ const requireTaskPermission = (action) => {
         changeStatus: 'canChangeStatus',
         delete: 'canDelete',
         assign: 'canAssign',
-        share: 'canShare'
+        share: 'canShare',
+        viewEmailLogs: 'canViewEmailLogs'
       };
 
       const requiredPermissionKey = actionKeyMap[action];
       if (!requiredPermissionKey || !permissions[requiredPermissionKey]) {
         if (action === 'view') {
           return res.status(403).json({ message: 'Ban khong co quyen truy cap cong viec nay' });
+        }
+        if (action === 'viewEmailLogs') {
+          return res.status(403).json({ message: 'Ban khong co quyen xem nhat ky email cua cong viec nay' });
         }
         return res.status(403).json({ message: 'Ban khong co quyen thuc hien hanh dong nay' });
       }

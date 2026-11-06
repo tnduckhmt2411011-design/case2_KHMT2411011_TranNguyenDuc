@@ -230,6 +230,100 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _handleViewEmailLogs() async {
+    final task = _task;
+    if (task == null) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+      final logs = await _taskService.getTaskEmailLogs(task.id);
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      _showEmailLogsDialog(logs);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      if (e.statusCode == 401) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.statusCode == 403
+              ? 'Bạn không có quyền xem nhật ký email của công việc này.'
+              : e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: ${e.toString()}'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showEmailLogsDialog(List<Map<String, dynamic>> logs) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nhật ký gửi email'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: logs.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Chưa có email nào được gửi cho công việc này.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: logs.length,
+                  separatorBuilder: (_, _) => const Divider(),
+                  itemBuilder: (_, index) {
+                    final log = logs[index];
+                    final status = log['status']?.toString() ?? 'unknown';
+                    final recipient = log['recipientEmail']?.toString() ?? '';
+                    final subject = log['subject']?.toString() ?? '';
+                    final eventType = log['eventType']?.toString() ?? '';
+                    final isSent = status == 'sent';
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isSent ? Icons.check_circle : Icons.error_outline,
+                        color: isSent ? Colors.green : Colors.red,
+                      ),
+                      title: Text(subject, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Đến: $recipient', style: const TextStyle(fontSize: 12)),
+                          Text('Sự kiện: $eventType | Trạng thái: $status', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
   IconData _activityIcon(String action) {
     switch (action) {
       case 'created':
@@ -388,6 +482,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     label: const Text('Chia sẻ'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                if (perms.canViewEmailLogs)
+                  ElevatedButton.icon(
+                    onPressed: _handleViewEmailLogs,
+                    icon: const Icon(Icons.email_outlined, size: 18),
+                    label: const Text('Lịch sử email'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueGrey,
                       foregroundColor: Colors.white,
                     ),
                   ),
