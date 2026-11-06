@@ -95,7 +95,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _handleOpenNotification(AppNotification notification) async {
     await _markAsRead(notification);
 
-    if (!mounted || notification.taskId == null) return;
+    if (!mounted) return;
+    if (notification.taskId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Công việc không còn tồn tại hoặc đã bị xóa.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
