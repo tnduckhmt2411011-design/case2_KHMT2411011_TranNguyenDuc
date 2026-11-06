@@ -88,7 +88,8 @@ const formatTaskDetail = async (taskDoc, permissions) => {
       canChangeStatus: permissions.canChangeStatus,
       canDelete: permissions.canDelete,
       canAssign: permissions.canAssign,
-      canShare: permissions.canShare
+      canShare: permissions.canShare,
+      canViewEmailLogs: permissions.canViewEmailLogs
     },
     createdAt: taskObj.createdAt,
     updatedAt: taskObj.updatedAt

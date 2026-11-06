@@ -20,6 +20,7 @@ const getTaskPermissions = (task, userId, share = null) => {
       canDelete: false,
       canAssign: false,
       canShare: false,
+      canViewEmailLogs: false,
       userRole: null
     };
   }
@@ -57,6 +58,7 @@ const getTaskPermissions = (task, userId, share = null) => {
   const canDelete = Boolean(isCreator);
   const canAssign = Boolean(isCreator);
   const canShare = Boolean(isCreator);
+  const canViewEmailLogs = Boolean(isCreator);
 
   // Xac dinh nhan userRole uu tien cho giao dien
   let userRole = null;
@@ -77,6 +79,7 @@ const getTaskPermissions = (task, userId, share = null) => {
     canDelete,
     canAssign,
     canShare,
+    canViewEmailLogs,
     userRole
   };
 };
