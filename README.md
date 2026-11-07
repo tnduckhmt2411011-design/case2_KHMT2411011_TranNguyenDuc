@@ -233,8 +233,22 @@ flutter run
   - "Sắp đến hạn" được định nghĩa là hạn hoàn thành trong vòng 24 giờ tới và không tính công việc đã hoàn thành.
   - Sắp xếp theo ưu tiên dùng thứ tự logic low < medium < high; công việc không có hạn hoàn thành luôn xếp cuối.
   - Gửi email thất bại chỉ ghi log `failed`, không rollback thao tác giao việc/chia sẻ/đổi hạn/hoàn thành.
-  - Xóa công việc cascade cả `TaskShare`, `TaskActivity`, `Notification`, `EmailLog` để tránh dữ liệu mồ côi.
-- **Kiểm thử:** Đã chạy `flutter analyze` (không lỗi), `flutter test` (12 test pass), kiểm thử API với 4 vai trò (creator, assignee, editor, viewer) và người không liên quan, kiểm thử trên Android Emulator.
+  - Xóa công việc cascade `TaskShare` và `TaskActivity`; giữ lại `Notification` và `EmailLog` để bảo toàn lịch sử audit trail theo đề bài.
+- **Kiểm thử tự động & Xác minh chất lượng:**
+  - **Kiểm thử API tự động (`npm test`):**
+    ```bash
+    cd api
+    npm test
+    ```
+    - **Yêu cầu môi trường:** Cần file `api/.env` chứa biến `MONGODB_URI` kết nối đến cơ sở dữ liệu MongoDB Atlas thật.
+    - **Cơ chế cô lập & Tự dọn sạch:** Dữ liệu kiểm thử sử dụng tiền tố `[TEST]` và email `test+<suite>_<role>_<runId>@example.test`. Hook `after()` trong mỗi file kiểm thử tự động xóa sạch toàn bộ người dùng, công việc, chia sẻ, thông báo và email logs phát sinh, giữ cơ sở dữ liệu luôn sạch sau khi chạy.
+    - **Giả lập SMTP an toàn:** Toàn bộ test suite tự động thiết lập mock SMTP (`process.env.SMTP_HOST = ''`) trước khi nạp ứng dụng, đảm bảo các bài kiểm thử chạy độc lập, an toàn và thành công 100% mà không phụ thuộc vào hạ tầng SMTP thật bên ngoài.
+    - **Danh mục 4 file kiểm thử (`node --test`):**
+      1. `api/tests/statistics.test.js`: Kiểm thử tích hợp các endpoint thống kê công việc, phân công và hạn hoàn thành theo phân quyền (Nhóm E).
+      2. `api/tests/activities.test.js`: Kiểm thử tích hợp lịch sử hoạt động, kiểm tra thứ tự thời gian mới nhất trước và phân quyền truy cập (Nhóm G).
+      3. `api/tests/permissions.test.js`: Kiểm thử ma trận phân quyền CRUD toàn diện cho 5 vai trò (Creator, Editor, Assignee, Viewer, Stranger cùng combo Assignee + Viewer), xác minh mã phản hồi HTTP và hiệu ứng dữ liệu thật trong cơ sở dữ liệu (Nhóm C).
+      4. `api/tests/integration_flow.test.js`: Kiểm thử tích hợp luồng chính Buổi 3 xuyên suốt 3 tài khoản (Creator, Assignee, Editor) từ đăng ký, tạo việc, tìm kiếm/lọc, giao việc, chia sẻ, cập nhật trạng thái, thông báo in-app (unread/read/read-all), email logs, thống kê, thu hồi quyền đến xóa việc và bảo toàn audit trail.
+  - **Kiểm thử ứng dụng Flutter:** Đã chạy `flutter analyze` (không lỗi, không cảnh báo), `flutter test` (12/12 unit & widget tests pass), kiểm thử giao diện theo vai trò trên Android Emulator.
 - **Lưu ý môi trường:** Phiên làm việc không truy cập được MongoDB MCP nên việc kiểm tra dữ liệu Atlas được thực hiện gián tiếp qua API và script Mongoose cục bộ; không thực hiện thao tác xóa database/collection/cluster.
 - **Hạn chế còn lại:** Cần cấu hình SMTP thật trong `api/.env` để gửi email ra ngoài; môi trường kiểm thử đã dùng SMTP sink cục bộ.
 
