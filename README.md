@@ -233,14 +233,28 @@ flutter run
   - "Sắp đến hạn" được định nghĩa là hạn hoàn thành trong vòng 24 giờ tới và không tính công việc đã hoàn thành.
   - Sắp xếp theo ưu tiên dùng thứ tự logic low < medium < high; công việc không có hạn hoàn thành luôn xếp cuối.
   - Gửi email thất bại chỉ ghi log `failed`, không rollback thao tác giao việc/chia sẻ/đổi hạn/hoàn thành.
-  - Xóa công việc cascade cả `TaskShare`, `TaskActivity`, `Notification`, `EmailLog` để tránh dữ liệu mồ côi.
-- **Kiểm thử:** Đã chạy `flutter analyze` (không lỗi), `flutter test` (12 test pass), kiểm thử API với 4 vai trò (creator, assignee, editor, viewer) và người không liên quan, kiểm thử trên Android Emulator.
+  - Xóa công việc cascade `TaskShare` và `TaskActivity`; giữ lại `Notification` và `EmailLog` để bảo toàn lịch sử audit trail theo đề bài.
+- **Kiểm thử tự động & Xác minh chất lượng:**
+  - **Kiểm thử API tự động (`npm test`):**
+    ```bash
+    cd api
+    npm test
+    ```
+    - **Yêu cầu môi trường:** Cần file `api/.env` chứa biến `MONGODB_URI` kết nối đến cơ sở dữ liệu MongoDB Atlas thật.
+    - **Cơ chế cô lập & Tự dọn sạch:** Dữ liệu kiểm thử sử dụng tiền tố `[TEST]` và email `test+<suite>_<role>_<runId>@example.test`. Hook `after()` trong mỗi file kiểm thử tự động xóa sạch toàn bộ người dùng, công việc, chia sẻ, thông báo và email logs phát sinh, giữ cơ sở dữ liệu luôn sạch sau khi chạy.
+    - **Giả lập SMTP an toàn:** Toàn bộ test suite tự động thiết lập mock SMTP (`process.env.SMTP_HOST = ''`) trước khi nạp ứng dụng, đảm bảo các bài kiểm thử chạy độc lập, an toàn và thành công 100% mà không phụ thuộc vào hạ tầng SMTP thật bên ngoài.
+    - **Danh mục 4 file kiểm thử (`node --test`):**
+      1. `api/tests/statistics.test.js`: Kiểm thử tích hợp các endpoint thống kê công việc, phân công và hạn hoàn thành theo phân quyền (Nhóm E).
+      2. `api/tests/activities.test.js`: Kiểm thử tích hợp lịch sử hoạt động, kiểm tra thứ tự thời gian mới nhất trước và phân quyền truy cập (Nhóm G).
+      3. `api/tests/permissions.test.js`: Kiểm thử ma trận phân quyền CRUD toàn diện cho 5 vai trò (Creator, Editor, Assignee, Viewer, Stranger cùng combo Assignee + Viewer), xác minh mã phản hồi HTTP và hiệu ứng dữ liệu thật trong cơ sở dữ liệu (Nhóm C).
+      4. `api/tests/integration_flow.test.js`: Kiểm thử tích hợp luồng chính Buổi 3 xuyên suốt 3 tài khoản (Creator, Assignee, Editor) từ đăng ký, tạo việc, tìm kiếm/lọc, giao việc, chia sẻ, cập nhật trạng thái, thông báo in-app (unread/read/read-all), email logs, thống kê, thu hồi quyền đến xóa việc và bảo toàn audit trail.
+  - **Kiểm thử ứng dụng Flutter:** Đã chạy `flutter analyze` (không lỗi, không cảnh báo), `flutter test` (12/12 unit & widget tests pass), kiểm thử giao diện theo vai trò trên Android Emulator.
 - **Lưu ý môi trường:** Phiên làm việc không truy cập được MongoDB MCP nên việc kiểm tra dữ liệu Atlas được thực hiện gián tiếp qua API và script Mongoose cục bộ; không thực hiện thao tác xóa database/collection/cluster.
 - **Hạn chế còn lại:** Cần cấu hình SMTP thật trong `api/.env` để gửi email ra ngoài; môi trường kiểm thử đã dùng SMTP sink cục bộ.
 
 ---
 
 ## 7. Quy trình Git và Báo cáo Minh bạch
-- **Giai đoạn 0 (Khởi tạo dự án):** Các commit khởi tạo cấu trúc ban đầu được đẩy trực tiếp lên `main` (`7b20468` khởi tạo repository & README, `7a1fa75` khởi tạo Node.js API, `cf40102` khởi tạo Flutter App) theo yêu cầu thiết lập ban đầu "commit đầu tiên là push đầu tiên".
+- **Giai đoạn 0 (Khởi tạo dự án):** Các commit khởi tạo cấu trúc ban đầu được đẩy trực tiếp lên `main` (`9cca607` khởi tạo repository & README, `7a1fa75` khởi tạo Node.js API, `cf40102` khởi tạo Flutter App) theo yêu cầu thiết lập ban đầu "commit đầu tiên là push đầu tiên".
 - **Sửa lỗi biên dịch Kotlin:** Có 01 commit nóng trực tiếp trên `main` (`53b1e89`: `fix(app): tat incremental compilation kotlin tranh loi khac o dia`) để giải quyết triệt để lỗi biên dịch chéo ổ đĩa trên Windows khi chạy `flutter run`.
-- **Phân nhánh Nhóm E (Thống kê):** Chức năng thống kê ban đầu được cài đặt trong nhánh `d-thong-bao-email` (tại commit `ebee89b` và `d43138d`). Sau đợt kiểm toán độc lập, nhánh chuyên biệt `e-thong-ke` đã được khởi tạo để bổ sung toàn diện bộ kiểm thử tích hợp (`node --test` trong `api/tests/`), kiểm thử widget Flutter (`statistics_test.dart`) và tài liệu kỹ thuật chi tiết.
+- **Phân nhánh Nhóm E (Thống kê & Bổ sung):** Các chức năng của Nhóm E ban đầu được triển khai trên nhánh `d-thong-bao-email` gồm các commit tính năng thực sự: `ebee89b` (API thống kê công việc, giao việc và hạn), `8d2d032` (UI màn hình thống kê và hồ sơ cá nhân), cùng `d73d9a9` và `9cbcd5e` (API & UI lịch sử hoạt động công việc); còn `d43138d` là commit merge tổng hợp Buổi 3 (`merge: hoan thanh buoi 3 thong bao email thong ke va ho so`) chứ không phải commit tính năng đơn lẻ. Sau các đợt kiểm toán độc lập, nhánh chuyên biệt `e-thong-ke` được duy trì để bổ sung toàn diện bộ kiểm thử tích hợp (`node --test` trong `api/tests/`), kiểm thử widget Flutter (`statistics_test.dart`) và cập nhật tài liệu kỹ thuật chi tiết.
