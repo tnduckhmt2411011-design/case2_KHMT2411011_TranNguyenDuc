@@ -9,7 +9,7 @@
 ## 1. Giới thiệu tổng quan
 Dự án **Task Manager** xây dựng theo kiến trúc Monorepo gồm 2 thành phần chính:
 - **Backend (`api/`):** REST API xây dựng bằng Node.js, Express, MongoDB (Mongoose ODM), JWT, bcryptjs.
-- **Frontend (`TaskManager/`):** Ứng dụng di động đa nền tảng bằng Flutter, giao diện Material 3 sạch sẽ, trực quan.
+- **Frontend (`TaskManager/`):** Ứng dụng di động đa nền tảng bằng Flutter, sử dụng giao diện Material 3 cho các màn hình đăng nhập, danh sách công việc 3 tab, giao việc, chia sẻ, thông báo và thống kê.
 
 ---
 
@@ -72,7 +72,7 @@ SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_app_password
 EMAIL_FROM=Task Manager <no-reply@taskmanager.com>
 ```
-> **Lưu ý bảo mật:** File `.env` chứa mật khẩu cơ sở dữ liệu, JWT secret và mật khẩu ứng dụng email tuyệt đối không commit lên Git (đã được cấu hình trong `.gitignore`).
+> **Lưu ý bảo mật:** File `.env` chứa mật khẩu cơ sở dữ liệu, JWT secret và mật khẩu ứng dụng email không được phép commit lên Git (đã được cấu hình trong `.gitignore`).
 > Nếu chưa cấu hình SMTP, API vẫn hoạt động bình thường; email được ghi nhận ở trạng thái `failed` trong `email_logs` và không làm hỏng nghiệp vụ giao việc/chia sẻ.
 
 ### 3.2. Cài đặt và chạy Backend
@@ -155,7 +155,7 @@ flutter run
 - `NotificationScreen` (Buổi 3): Danh sách thông báo trong ứng dụng, đánh dấu đã đọc từng thông báo hoặc tất cả, điều hướng nhanh tới công việc liên quan.
 - `ProfileScreen` (Buổi 3): Xem/cập nhật họ tên và ảnh đại diện, đổi mật khẩu, xem thống kê công việc, giao việc và hạn hoàn thành.
 - `TaskDetailScreen` (Buổi 3): Bổ sung mục "Lịch sử hoạt động" hiển thị người thực hiện, hành động, chi tiết thay đổi và thời gian.
-- Đầy đủ thông báo kết quả bằng SnackBar; tự động điều hướng về màn hình đăng nhập khi gặp lỗi 401.
+- Hiển thị thông báo kết quả thao tác bằng SnackBar; tự động điều hướng về màn hình đăng nhập khi gặp lỗi 401.
 
 ### 4.4. Nhóm D - Thông báo trong ứng dụng (Buổi 3)
 - `GET /api/notifications`: Lấy danh sách thông báo của chính người dùng (mới nhất trước).
@@ -168,7 +168,7 @@ flutter run
 - Gửi email qua `nodemailer` khi: giao việc, chia sẻ công việc, đổi hạn hoàn thành, hoàn thành công việc.
 - Mỗi lần gửi được ghi vào `email_logs` với trạng thái `pending`/`sent`/`failed`, số lần thử và lỗi (nếu có). Lỗi email không làm hỏng thao tác chính.
 - `GET /api/tasks/:id/email-logs`: Xem lịch sử email của công việc (chỉ người tạo - creator mới có quyền truy cập; người khác nhận 403 Forbidden).
-- `POST /api/email-logs/:logId/retry`: Gửi lại email thất bại (chỉ creator, tối đa 5 lần thử).
+- `POST /api/email-logs/:logId/retry`: API gửi lại email thất bại (chỉ creator, tối đa 5 lần thử; trên ứng dụng Flutter hiện hiển thị danh sách nhật ký email).
 
 ### 4.6. Nhóm E & F - Thống kê và Lịch sử hoạt động
 - `GET /api/statistics/tasks`: Tổng số công việc người dùng có quyền truy cập, phân bố theo trạng thái (`todo`, `in_progress`, `completed`) và ưu tiên (`low`, `medium`, `high`). Người chưa có công việc nào nhận toàn số 0.
@@ -243,19 +243,18 @@ flutter run
     ```
     - **Yêu cầu môi trường:** Cần file `api/.env` chứa biến `MONGODB_URI` kết nối đến cơ sở dữ liệu MongoDB Atlas thật.
     - **Cơ chế cô lập & Tự dọn sạch:** Dữ liệu kiểm thử sử dụng tiền tố `[TEST]` và email `test+<suite>_<role>_<runId>@example.test`. Hook `after()` trong mỗi file kiểm thử tự động xóa sạch toàn bộ người dùng, công việc, chia sẻ, thông báo và email logs phát sinh, giữ cơ sở dữ liệu luôn sạch sau khi chạy.
-    - **Giả lập SMTP an toàn:** Toàn bộ test suite tự động thiết lập mock SMTP (`process.env.SMTP_HOST = ''`) trước khi nạp ứng dụng, đảm bảo các bài kiểm thử chạy độc lập, an toàn và thành công 100% mà không phụ thuộc vào hạ tầng SMTP thật bên ngoài.
+    - **Giả lập SMTP an toàn:** Toàn bộ test suite tự động thiết lập mock SMTP (`process.env.SMTP_HOST = ''`) trước khi nạp ứng dụng, giúp các bài kiểm thử chạy độc lập mà không phụ thuộc vào hạ tầng SMTP bên ngoài.
     - **Danh mục 4 file kiểm thử (`node --test`):**
       1. `api/tests/statistics.test.js`: Kiểm thử tích hợp các endpoint thống kê công việc, phân công và hạn hoàn thành theo phân quyền (Nhóm E).
       2. `api/tests/activities.test.js`: Kiểm thử tích hợp lịch sử hoạt động, kiểm tra thứ tự thời gian mới nhất trước và phân quyền truy cập (Nhóm G).
-      3. `api/tests/permissions.test.js`: Kiểm thử ma trận phân quyền CRUD toàn diện cho 5 vai trò (Creator, Editor, Assignee, Viewer, Stranger cùng combo Assignee + Viewer), xác minh mã phản hồi HTTP và hiệu ứng dữ liệu thật trong cơ sở dữ liệu (Nhóm C).
+      3. `api/tests/permissions.test.js`: Kiểm thử ma trận phân quyền CRUD cho 5 vai trò (Creator, Editor, Assignee, Viewer, Stranger cùng combo Assignee + Viewer), xác minh mã phản hồi HTTP và hiệu ứng dữ liệu thật trong cơ sở dữ liệu (Nhóm C).
       4. `api/tests/integration_flow.test.js`: Kiểm thử tích hợp luồng chính Buổi 3 xuyên suốt 3 tài khoản (Creator, Assignee, Editor) từ đăng ký, tạo việc, tìm kiếm/lọc, giao việc, chia sẻ, cập nhật trạng thái, thông báo in-app (unread/read/read-all), email logs, thống kê, thu hồi quyền đến xóa việc và bảo toàn audit trail.
-  - **Kiểm thử ứng dụng Flutter:** Đã chạy `flutter analyze` (không lỗi, không cảnh báo), `flutter test` (12/12 unit & widget tests pass), kiểm thử giao diện theo vai trò trên Android Emulator.
-- **Lưu ý môi trường:** Phiên làm việc không truy cập được MongoDB MCP nên việc kiểm tra dữ liệu Atlas được thực hiện gián tiếp qua API và script Mongoose cục bộ; không thực hiện thao tác xóa database/collection/cluster.
+  - **Kiểm thử ứng dụng Flutter:** Đã chạy `flutter analyze` (không lỗi, không cảnh báo), `flutter test` (unit & widget tests pass), kiểm thử giao diện theo vai trò trên Android Emulator.
 - **Hạn chế còn lại:** Cần cấu hình SMTP thật trong `api/.env` để gửi email ra ngoài; môi trường kiểm thử đã dùng SMTP sink cục bộ.
 
 ---
 
 ## 7. Quy trình Git và Báo cáo Minh bạch
 - **Giai đoạn 0 (Khởi tạo dự án):** Các commit khởi tạo cấu trúc ban đầu được đẩy trực tiếp lên `main` (`9cca607` khởi tạo repository & README, `7a1fa75` khởi tạo Node.js API, `cf40102` khởi tạo Flutter App) theo yêu cầu thiết lập ban đầu "commit đầu tiên là push đầu tiên".
-- **Sửa lỗi biên dịch Kotlin:** Có 01 commit nóng trực tiếp trên `main` (`53b1e89`: `fix(app): tat incremental compilation kotlin tranh loi khac o dia`) để giải quyết triệt để lỗi biên dịch chéo ổ đĩa trên Windows khi chạy `flutter run`.
-- **Phân nhánh Nhóm E (Thống kê & Bổ sung):** Các chức năng của Nhóm E ban đầu được triển khai trên nhánh `d-thong-bao-email` gồm các commit tính năng thực sự: `ebee89b` (API thống kê công việc, giao việc và hạn), `8d2d032` (UI màn hình thống kê và hồ sơ cá nhân), cùng `d73d9a9` và `9cbcd5e` (API & UI lịch sử hoạt động công việc); còn `d43138d` là commit merge tổng hợp Buổi 3 (`merge: hoan thanh buoi 3 thong bao email thong ke va ho so`) chứ không phải commit tính năng đơn lẻ. Sau các đợt kiểm toán độc lập, nhánh chuyên biệt `e-thong-ke` được duy trì để bổ sung toàn diện bộ kiểm thử tích hợp (`node --test` trong `api/tests/`), kiểm thử widget Flutter (`statistics_test.dart`) và cập nhật tài liệu kỹ thuật chi tiết.
+- **Sửa lỗi biên dịch Kotlin:** Có 01 commit nóng trực tiếp trên `main` (`53b1e89`: `fix(app): tat incremental compilation kotlin tranh loi khac o dia`) để khắc phục lỗi biên dịch chéo ổ đĩa trên Windows khi chạy `flutter run`.
+- **Phân nhánh Nhóm E (Thống kê & Bổ sung):** Các chức năng của Nhóm E ban đầu được triển khai trên nhánh `d-thong-bao-email` gồm các commit tính năng thực sự: `ebee89b` (API thống kê công việc, giao việc và hạn), `8d2d032` (UI màn hình thống kê và hồ sơ cá nhân), cùng `d73d9a9` và `9cbcd5e` (API & UI lịch sử hoạt động công việc); còn `d43138d` là commit merge tổng hợp Buổi 3 (`merge: hoan thanh buoi 3 thong bao email thong ke va ho so`) chứ không phải commit tính năng đơn lẻ. Sau các đợt kiểm toán độc lập, nhánh chuyên biệt `e-thong-ke` được duy trì để bổ sung bộ kiểm thử tích hợp (`node --test` trong `api/tests/`), kiểm thử widget Flutter (`statistics_test.dart`) và cập nhật tài liệu kỹ thuật.

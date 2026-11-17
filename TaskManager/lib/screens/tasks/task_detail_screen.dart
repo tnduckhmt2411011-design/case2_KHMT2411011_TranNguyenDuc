@@ -454,53 +454,41 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               runSpacing: 8,
               children: [
                 if (perms.canEdit)
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: _handleEdit,
                     icon: const Icon(Icons.edit, size: 18),
                     label: const Text('Sửa'),
                   ),
                 if (perms.canChangeStatus)
-                  OutlinedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: _handleChangeStatus,
                     icon: const Icon(Icons.swap_horiz, size: 18),
                     label: const Text('Đổi trạng thái'),
                   ),
                 if (perms.canAssign)
-                  ElevatedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: _handleAssign,
                     icon: const Icon(Icons.person_add, size: 18),
                     label: const Text('Giao việc'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
-                    ),
                   ),
                 if (perms.canShare)
-                  ElevatedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: _handleShare,
                     icon: const Icon(Icons.share, size: 18),
                     label: const Text('Chia sẻ'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                    ),
                   ),
                 if (perms.canViewEmailLogs)
-                  ElevatedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: _handleViewEmailLogs,
                     icon: const Icon(Icons.email_outlined, size: 18),
                     label: const Text('Lịch sử email'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                      foregroundColor: Colors.white,
-                    ),
                   ),
                 if (perms.canDelete)
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: _handleDelete,
                     icon: const Icon(Icons.delete, size: 18),
                     label: const Text('Xóa'),
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                     ),
@@ -630,29 +618,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           const SizedBox(height: 8),
           if (task.shares.isNotEmpty)
             ...task.shares.map(
-              (share) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: Colors.purple.shade100,
-                  child: Text(
-                    share.user != null && share.user!.fullName.isNotEmpty
-                        ? share.user!.fullName[0].toUpperCase()
-                        : 'S',
-                    style: TextStyle(color: Colors.purple.shade900),
+              (share) {
+                final isEditor = share.permission == 'editor';
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        isEditor ? Colors.orange.shade100 : Colors.blue.shade100,
+                    child: Text(
+                      share.user != null && share.user!.fullName.isNotEmpty
+                          ? share.user!.fullName[0].toUpperCase()
+                          : 'S',
+                      style: TextStyle(
+                        color: isEditor
+                            ? Colors.orange.shade900
+                            : Colors.blue.shade900,
+                      ),
+                    ),
                   ),
-                ),
-                title: Text(share.user?.fullName ?? 'Người dùng'),
-                subtitle: Text(share.user?.email ?? ''),
-                trailing: Chip(
-                  label: Text(
-                    share.permissionLabel,
-                    style: const TextStyle(fontSize: 12),
+                  title: Text(share.user?.fullName ?? 'Người dùng'),
+                  subtitle: Text(share.user?.email ?? ''),
+                  trailing: Chip(
+                    label: Text(
+                      share.permissionLabel,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    backgroundColor:
+                        isEditor ? Colors.orange.shade50 : Colors.blue.shade50,
                   ),
-                  backgroundColor: share.permission == 'editor'
-                      ? Colors.orange.shade50
-                      : Colors.blue.shade50,
-                ),
-              ),
+                );
+              },
             )
           else
             const Text('Công việc chưa được chia sẻ cho ai'),

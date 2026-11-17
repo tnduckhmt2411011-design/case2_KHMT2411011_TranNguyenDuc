@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 
 const STATUS_LABELS = {
-  todo: 'Chua thuc hien',
-  in_progress: 'Dang thuc hien',
-  completed: 'Da hoan thanh'
+  todo: 'Chưa thực hiện',
+  in_progress: 'Đang thực hiện',
+  completed: 'Đã hoàn thành'
 };
 
 const toIdString = (value) => {
@@ -67,20 +67,20 @@ const notifyTaskAssigned = async ({ task, actor, recipients }) => {
     actorId: actor,
     taskId: task._id,
     type: 'task_assigned',
-    title: 'Ban duoc giao cong viec moi',
-    message: `${actor.fullName} da giao cho ban cong viec "${task.title}".`
+    title: 'Bạn được giao công việc mới',
+    message: `${actor.fullName} đã giao cho bạn công việc "${task.title}".`
   });
 };
 
 const notifyTaskShared = async ({ task, actor, recipients, permission }) => {
-  const permissionLabel = permission === 'editor' ? 'chinh sua' : 'chi xem';
+  const permissionLabel = permission === 'editor' ? 'chỉnh sửa' : 'chỉ xem';
   return notifyUsers({
     recipients,
     actorId: actor,
     taskId: task._id,
     type: 'task_shared',
-    title: 'Ban duoc chia se cong viec',
-    message: `${actor.fullName} da chia se cong viec "${task.title}" cho ban voi quyen ${permissionLabel}.`
+    title: 'Bạn được chia sẻ công việc',
+    message: `${actor.fullName} đã chia sẻ công việc "${task.title}" cho bạn với quyền ${permissionLabel}.`
   });
 };
 
@@ -100,10 +100,10 @@ const notifyTaskStatusChanged = async ({
     actorId: actor,
     taskId: task._id,
     type: isCompleted ? 'task_completed' : 'task_status_changed',
-    title: isCompleted ? 'Cong viec da hoan thanh' : 'Trang thai cong viec thay doi',
+    title: isCompleted ? 'Công việc đã hoàn thành' : 'Trạng thái công việc thay đổi',
     message: isCompleted
-      ? `${actor.fullName} da danh dau cong viec "${task.title}" la da hoan thanh.`
-      : `${actor.fullName} da doi trang thai cong viec "${task.title}" tu "${fromLabel}" sang "${toLabel}".`
+      ? `${actor.fullName} đã đánh dấu công việc "${task.title}" là đã hoàn thành.`
+      : `${actor.fullName} đã đổi trạng thái công việc "${task.title}" từ "${fromLabel}" sang "${toLabel}".`
   });
 };
 
@@ -113,16 +113,16 @@ const notifyTaskDueDateChanged = async ({
   recipients,
   oldDueDate
 }) => {
-  const oldLabel = oldDueDate ? new Date(oldDueDate).toLocaleString('vi-VN') : 'chua thiet lap';
-  const newLabel = task.dueDate ? new Date(task.dueDate).toLocaleString('vi-VN') : 'chua thiet lap';
+  const oldLabel = oldDueDate ? new Date(oldDueDate).toLocaleString('vi-VN') : 'chưa thiết lập';
+  const newLabel = task.dueDate ? new Date(task.dueDate).toLocaleString('vi-VN') : 'chưa thiết lập';
 
   return notifyUsers({
     recipients,
     actorId: actor,
     taskId: task._id,
     type: 'task_due_changed',
-    title: 'Han hoan thanh cong viec thay doi',
-    message: `${actor.fullName} da doi han hoan thanh cong viec "${task.title}" tu ${oldLabel} sang ${newLabel}.`
+    title: 'Hạn hoàn thành công việc thay đổi',
+    message: `${actor.fullName} đã đổi hạn hoàn thành công việc "${task.title}" từ ${oldLabel} sang ${newLabel}.`
   });
 };
 

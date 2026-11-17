@@ -13,20 +13,22 @@ class TaskManagerLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(size * 0.2);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: radius,
       child: Image.asset(
         assetPath,
         width: size,
         height: size,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
+        semanticLabel: 'Logo Task Manager',
         errorBuilder: (context, error, stackTrace) {
           return Container(
             width: size,
             height: size,
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: radius,
             ),
             child: Icon(
               Icons.task_alt,
