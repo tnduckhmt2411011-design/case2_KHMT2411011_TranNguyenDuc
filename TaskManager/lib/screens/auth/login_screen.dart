@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
+import '../../widgets/task_manager_logo.dart';
 import '../tasks/task_list_screen.dart';
 import 'register_screen.dart';
 
@@ -101,6 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Center(
+                    child: TaskManagerLogo(key: ValueKey('login_logo')),
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Đăng nhập Task Manager',
                     style: TextStyle(
@@ -191,8 +196,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text('Chưa có tài khoản?'),
                       TextButton(
